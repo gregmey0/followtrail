@@ -7,7 +7,7 @@ if(!NATIVE&&'serviceWorker' in navigator&&location.protocol==='https:')navigator
 const linkHash=()=>{const m=/^#(join|live)-([0-9-]+)/.exec(location.hash);if(!m)return null;try{history.replaceState({s:'home'},'',location.pathname+location.search)}catch(e){}return{k:m[1],c:m[2]}};
 const openLink=l=>{if(!l)return;if(l.k==='live')Watch.add(l.c);else Join.open(l.c)};
 window.addEventListener('hashchange',()=>openLink(linkHash()));
-/* application Android ouverte par un lien followtrail://join-CODE ou followtrail://live-CODE */
+/* application (Android, iPhone) ouverte par un lien followtrail://join-CODE ou followtrail://live-CODE */
 const linkCode=u=>{const c=normCode(u||'');return validCode(c)?{k:/live-/i.test(u)?'live':'join',c}:null};
 if(NATIVE&&P.app){try{P.app.addListener('appUrlOpen',e=>openLink(linkCode(e&&e.url)))}catch(e){}}
 $('#compassBtn').onclick=async()=>{const ok=await Compass.enable();toast(ok?'Boussole activée':'Boussole refusée ou indisponible',!ok)};

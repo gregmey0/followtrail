@@ -53,7 +53,7 @@ const Home={deferred:null,
     const r=$('#hResume');if(r)r.onclick=()=>Ride.resume();
     const wb=$('#hWatch');if(wb)wb.onclick=()=>{if(Watch.on)Watch.open();else Watch.restore(true)};
     const l=$('#hLast');if(l)l.onclick=()=>Summary.open(store.get(K.last,null));
-    $('#hVersion').textContent='Version '+VERSION+(NATIVE?' · application Android':'')+' · Greg Meyer, STAPS Avignon';
+    $('#hVersion').textContent='Version '+VERSION+(NATIVE?(PLATFORM==='ios'?' · application iPhone':' · application Android'):'')+' · Greg Meyer, STAPS Avignon';
   }
 };
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();Home.deferred=e;$('#hInstall').hidden=false});

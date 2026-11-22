@@ -1145,7 +1145,7 @@ table.seg tfoot th{text-align:left}
     </ul>
     <h2>Téléphone verrouillé</h2>
     <ul>
-      <li><b>Appli Android</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute.</li>
+      <li><b>Appli (Android, iPhone)</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute. Sur iPhone, autoriser la position « Toujours ».</li>
       <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte.</li>
       <li>En zone blanche, tout repart dès le retour du réseau : la trace complète est renvoyée.</li>
       <li>Course longue : le <b>mode économie</b> envoie la position toutes les 30 s.</li>
@@ -3577,7 +3577,7 @@ const Wake={lock:null,want:false,
   off(){this.want=false;if(NATIVE){P.awake.allowSleep().catch(()=>{});return}try{if(this.lock)this.lock.release()}catch(e){}this.lock=null}
 };
 /* ---------------- Voix : lecture des messages ----------------
-   appli Android : moteur de synthèse vocale du téléphone (fonctionne écran verrouillé) ; navigateur : Web Speech */
+   appli (Android, iPhone) : moteur de synthèse vocale du téléphone (fonctionne écran verrouillé) ; navigateur : Web Speech */
 const Voice={v:null,log:[],
   pick(){try{const vs=speechSynthesis.getVoices().filter(v=>/^fr/i.test(v.lang));this.v=vs.find(v=>/fr[-_]FR/i.test(v.lang)&&v.localService)||vs.find(v=>/fr[-_]FR/i.test(v.lang))||vs[0]||null}catch(e){}},
   init(){if('speechSynthesis' in window){this.pick();try{speechSynthesis.addEventListener('voiceschanged',()=>this.pick())}catch(e){}}},
@@ -3940,7 +3940,7 @@ const Home={deferred:null,
     const r=$('#hResume');if(r)r.onclick=()=>Ride.resume();
     const wb=$('#hWatch');if(wb)wb.onclick=()=>{if(Watch.on)Watch.open();else Watch.restore(true)};
     const l=$('#hLast');if(l)l.onclick=()=>Summary.open(store.get(K.last,null));
-    $('#hVersion').textContent='Version '+VERSION+(NATIVE?' · application Android':'')+' · Greg Meyer, STAPS Avignon';
+    $('#hVersion').textContent='Version '+VERSION+(NATIVE?(PLATFORM==='ios'?' · application iPhone':' · application Android'):'')+' · Greg Meyer, STAPS Avignon';
   }
 };
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();Home.deferred=e;$('#hInstall').hidden=false});
@@ -5367,7 +5367,7 @@ if(!NATIVE&&'serviceWorker' in navigator&&location.protocol==='https:')navigator
 const linkHash=()=>{const m=/^#(join|live)-([0-9-]+)/.exec(location.hash);if(!m)return null;try{history.replaceState({s:'home'},'',location.pathname+location.search)}catch(e){}return{k:m[1],c:m[2]}};
 const openLink=l=>{if(!l)return;if(l.k==='live')Watch.add(l.c);else Join.open(l.c)};
 window.addEventListener('hashchange',()=>openLink(linkHash()));
-/* application Android ouverte par un lien followtrail://join-CODE ou followtrail://live-CODE */
+/* application (Android, iPhone) ouverte par un lien followtrail://join-CODE ou followtrail://live-CODE */
 const linkCode=u=>{const c=normCode(u||'');return validCode(c)?{k:/live-/i.test(u)?'live':'join',c}:null};
 if(NATIVE&&P.app){try{P.app.addListener('appUrlOpen',e=>openLink(linkCode(e&&e.url)))}catch(e){}}
 $('#compassBtn').onclick=async()=>{const ok=await Compass.enable();toast(ok?'Boussole activée':'Boussole refusée ou indisponible',!ok)};

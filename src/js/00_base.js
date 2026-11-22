@@ -95,7 +95,7 @@ const Wake={lock:null,want:false,
   off(){this.want=false;if(NATIVE){P.awake.allowSleep().catch(()=>{});return}try{if(this.lock)this.lock.release()}catch(e){}this.lock=null}
 };
 /* ---------------- Voix : lecture des messages ----------------
-   appli Android : moteur de synthèse vocale du téléphone (fonctionne écran verrouillé) ; navigateur : Web Speech */
+   appli (Android, iPhone) : moteur de synthèse vocale du téléphone (fonctionne écran verrouillé) ; navigateur : Web Speech */
 const Voice={v:null,log:[],
   pick(){try{const vs=speechSynthesis.getVoices().filter(v=>/^fr/i.test(v.lang));this.v=vs.find(v=>/fr[-_]FR/i.test(v.lang)&&v.localService)||vs.find(v=>/fr[-_]FR/i.test(v.lang))||vs[0]||null}catch(e){}},
   init(){if('speechSynthesis' in window){this.pick();try{speechSynthesis.addEventListener('voiceschanged',()=>this.pick())}catch(e){}}},
