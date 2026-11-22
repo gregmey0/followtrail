@@ -361,7 +361,8 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   }
 };
 $('#rSos').addEventListener('click',e=>{
-  if(e.target.closest('#sosCancel')){Ride.send('👍 Tout va bien',QUICK[0]);Ride.renderHead();return}
+  /* « tout va bien » : on cherche le message par son type (l'ordre des messages rapides diffère entre Group Run et le partage de course) */
+  if(e.target.closest('#sosCancel')){const ok=QUICK.find(q=>q.k==='ok')||{k:'ok',t:'👍 Tout va bien'};Ride.send(ok.t,ok);Ride.renderHead();Ride.dirtyView(true);toast('Alerte levée');return}
   const b=e.target.closest('[data-sos]');if(b){Ride.setTab('map');RideMap.focus(b.dataset.sos)}
 });
 $$('#ride .tabs [data-tab]').forEach(b=>b.onclick=()=>Ride.setTab(b.dataset.tab));
