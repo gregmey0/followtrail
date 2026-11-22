@@ -19,10 +19,10 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     setTimeout(()=>{this.map.invalidateSize();this.update()},60);
   },
   async add(code,{silent,noOpen}={}){
-    code=normCode(code);if(!validCode(code)){if(!silent)toast('Code invalide : il faut les 12 chiffres du lien ou du QR code.',true);return false}
+    code=normCode(code);if(!validCode(code)){if(!silent)toast('Code invalide : il faut le code complet (chiffres et lettres) ou le lien reçu.',true);return false}
     if(!noOpen)this.open();
     if(this.src[code]){this.select(code,null);return true}
-    const S={code,link:null,session:null,riders:{},routes:{},msgs:new Map(),myMsgs:[],lastRead:Date.now(),status:'load',syncT:Date.now()};
+    const S={code,link:null,session:null,riders:{},routes:{},msgs:new Map(),myMsgs:[],lastRead:Date.now(),status:'load',syncT:Date.now(),wp:new Set()};
     this.src[code]=S;this.saveList();this.render(true);
     let link=null;try{link=await SessionLink.connect(code,{silent:true})}catch(e){}
     if(this.src[code]!==S){if(link)link.close();return false}
@@ -32,8 +32,9 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(!link.session)S.status=link.m.connected?'gone':'load';
     link.onSession=s=>this.onSession(S,s);link.onState=c=>{if(c)this.presence(S);this.renderHead()};
     S.m.onMessage((t,pl)=>this.onMsg(S,t,pl));
-    ['/p/+','/t/+/+','/r/+','/m/+','/route/+'].forEach(t=>S.m.subscribe(S.base+t));
+    ['/p/+','/t/+/+','/r/+','/m/+','/route/+','/w/+'].forEach(t=>S.m.subscribe(S.base+t));
     if(link.session)this.onSession(S,link.session);
+    setTimeout(()=>{if(this.src[S.code]===S&&this.abandoned(S))this.cleanup(S)},7000);
     this.presence(S);this.render(true);
     return true;
   },
@@ -70,6 +71,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(kind==='s'||!id)return;
     let o=null;if(pl.length){try{o=await unseal(S.key,pl)}catch(e){return}}
     const me=this.me().pid;
+    if(kind==='w'){S.wp.add(id);return}
     if(kind==='route'){if(!o)delete S.routes[id];else{const r=decRoute(o);if(r){r.id=id;S.routes[id]=r}}this.routesDirty=true;this.dirty(true);return}
     if(kind==='m'){if(!o||!Array.isArray(o.msgs))return;
       if(id===me&&!S.myMsgs.length)S.myMsgs=o.msgs.filter(x=>x&&x.pid===me).slice(-40);
@@ -91,11 +93,11 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(S.msgs.has(m.id))return;m=Object.assign({},m,{rt:Date.now()});S.msgs.set(m.id,m);
     if(S.msgs.size>400){const old=[...S.msgs.values()].sort((a,b)=>a.t-b.t).slice(0,S.msgs.size-400);old.forEach(x=>S.msgs.delete(x.id))}
     const mine=m.pid===this.me().pid;
-    if(!mine&&m.t>S.syncT-10000&&Date.now()-S.syncT>3000){
+    if(!mine&&m.t>S.syncT-10000&&Date.now()-S.syncT>3000&&!Moder.hidden(m,this.blk(S))){
       const sos=m.k==='sos';
       if(sos){Snd.sos();vib([600,200,600,200,900])}else if(settings.msgSound&&!m.fw){Snd.msg();vib([80,60,80])}
-      if(!m.fw||sos){if(this.tab!=='chat'||this.chatSrc!==S.code||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+m.text,sos);
-        if(document.visibilityState==='hidden'&&NATIVE&&settings.notif)try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':'💬 ')+m.name,body:m.text,smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
+      if(!m.fw||sos){if(this.tab!=='chat'||this.chatSrc!==S.code||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
+        if(document.visibilityState==='hidden'&&NATIVE&&settings.notif)try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':'💬 ')+m.name,body:Moder.clean(m.text),smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
     }
     if(this.tab==='chat'&&this.chatSrc===S.code&&document.visibilityState==='visible')S.lastRead=Date.now();
     this.renderChat();this.renderHead();
@@ -111,6 +113,19 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     seal(S.key,{pid:w.pid,name:w.name,fw:1,msgs:S.myMsgs.slice(-40)}).then(b=>S.m.publish(S.base+'/m/'+w.pid,b,true));
     this.presence(S);return true;
   },
+  /* partage abandonné (rien de neuf depuis 48 h, jamais terminé) : le premier qui l'ouvre l'efface du relais */
+  abandoned(S){
+    if(S.status!=='open'||!S.session||!S.m||!S.m.connected)return false;
+    const ups=Object.values(S.riders).filter(R=>R.st).map(R=>R.st.upd||0),last=Math.max(Date.parse(S.session.created)||0,...ups);
+    return Date.now()-last>48*3600e3;
+  },
+  cleanup(S){
+    const e=new Uint8Array(0),m=S.m,b=S.base,pids=new Set([...Object.keys(S.riders),...S.wp,this.me().pid]);
+    pids.forEach(pid=>{['p','r','m','w'].forEach(k=>m.publish(b+'/'+k+'/'+pid,e,true));const R=S.riders[pid];if(R)Object.keys(R.chunks).forEach(k=>m.publish(b+'/t/'+pid+'/'+k,e,true))});
+    Object.keys(S.routes).forEach(id=>m.publish(b+'/route/'+id,e,true));m.publish(b+'/s',e,true);
+    S.status='gone';S.riders={};this.routesDirty=true;toast('Ce partage était abandonné depuis plus de 48 h : il a été effacé du relais.',true);this.render(true);
+  },
+  blk(S){return(S&&S.session&&S.session.blk)||[]},
   /* ---------- données ---------- */
   isLive(S){return!!(S.session&&S.session.type==='live')},
   srcName(S){return(S.session&&S.session.name)||(S.status==='load'?'Connexion…':'Partage '+fmtCode(S.code))},
@@ -143,7 +158,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(!this.on)return;const ss=this.srcList(),ppl=this.people();
     $('#wTitle').textContent=ss.length?(ppl.length===1?'Suivi de '+ppl[0].R.st.name:ppl.length?'Suivi · '+ppl.length+' coureurs':this.srcName(ss[0])):'Suivi';
     const net=ss.length&&ss.every(S=>S.m&&S.m.connected);$('#wNet').textContent=net?'📡':'📡✖';$('#wNet').classList.toggle('off',!net);$('#wNet').title=net?'Connecté au relais':'Connexion au relais…';
-    let u=0;ss.forEach(S=>S.msgs.forEach(m=>{if(!m.fw&&m.pid!==this.me().pid&&m.rt>S.lastRead)u++}));const b=$('#wBadge');b.hidden=!u;b.textContent=u>99?'99+':String(u);
+    let u=0;ss.forEach(S=>S.msgs.forEach(m=>{if(!m.fw&&m.pid!==this.me().pid&&m.rt>S.lastRead&&!Moder.hidden(m,this.blk(S)))u++}));const b=$('#wBadge');b.hidden=!u;b.textContent=u>99?'99+':String(u);
     $('#wName').hidden=!!this.me().name||!ss.length;
     const now=Date.now(),sos=ppl.filter(x=>x.R.st.sos&&now-x.R.st.sos<SOS_MS&&x.R.st.status==='on');
     const el=$('#wSos');el.hidden=!sos.length;
@@ -223,10 +238,10 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     $('#wChatSrc').innerHTML=ss.length>1?ss.map(S=>{const R=this.runner(S);return`<button type="button" data-wsrc="${S.code}" aria-pressed="${S.code===this.chatSrc}">${esc(R&&R.st&&this.isLive(S)?R.st.name:this.srcName(S))}</button>`}).join(''):'';
     const S=this.src[this.chatSrc],list=$('#wChatList');
     if(!S){list.innerHTML='<li class="hint">Suis d\'abord un coureur.</li>';return}
-    const me=this.me().pid,arr=[...S.msgs.values()].sort((a,b)=>a.t-b.t),R=this.runner(S),who=R&&R.st?R.st.name:'le coureur';
+    const me=this.me().pid,blk=this.blk(S),arr=[...S.msgs.values()].filter(m=>!Moder.hidden(m,blk)).sort((a,b)=>a.t-b.t),R=this.runner(S),who=R&&R.st?R.st.name:'le coureur';
     const near=list.scrollHeight-list.scrollTop-list.clientHeight<120;
     list.innerHTML=(arr.length?arr.map(m=>{const mine=m.pid===me,col=mine?'#00E5FF':colorOf(m.pid);
-      return`<li class="msg${mine?' mine':''}${m.k==='sos'?' sos':''}${m.fw?'':' runner'}"><div class="mh"><span class="dot" style="background:${col};${mine?'color:#000':''}">${esc(initials(m.name))}</span><b>${mine?'Moi':esc(m.name)}</b><time>${hhmm(m.t)}</time></div><p>${esc(m.text)}</p>
+      return`<li class="msg${mine?' mine':''}${m.k==='sos'?' sos':''}${m.fw?'':' runner'}"${mine?'':` data-wmid="${esc(m.id)}"`}><div class="mh"><span class="dot" style="background:${col};${mine?'color:#000':''}">${esc(initials(m.name))}</span><b>${mine?'Moi':esc(m.name)}</b><time>${hhmm(m.t)}</time></div><p>${esc(Moder.clean(m.text))}</p>
       ${m.pos?`<button type="button" class="mini" data-wpos="${m.pos.lat},${m.pos.lon}">📍 Voir sur la carte</button>`:''}</li>`}).join('')
       :`<li class="hint">Envoie un encouragement à ${esc(who)} : ${this.isLive(S)?'il s\'affiche sur son téléphone et lui est lu à voix haute.':'tout le groupe le reçoit.'}</li>`)
       +(S.status!=='open'?'<li class="sys">Terminé : les messages ne partent plus.</li>':'');
@@ -272,6 +287,7 @@ $('#watch').addEventListener('click',e=>{
     return}
   const q=e.target.closest('[data-wq]');if(q){const it=QUICK_FAN[+q.dataset.wq];Watch.send(it.t,it).then(ok=>{if(ok){vib(40);toast('Envoyé !')}});return}
   const sr=e.target.closest('[data-wsrc]');if(sr){Watch.chatSrc=sr.dataset.wsrc;const S=Watch.src[Watch.chatSrc];if(S)S.lastRead=Date.now();Watch.saveList();Watch.renderChat(true);Watch.renderHead();return}
+  const wm=!e.target.closest('button,a')&&e.target.closest('li[data-wmid]');if(wm){const S=Watch.src[Watch.chatSrc],m=S&&S.msgs.get(wm.dataset.wmid);if(m)Moder.open(m,{org:false}).then(v=>{if(v){Watch.renderChat(true);Watch.renderHead()}});return}
   const ps=e.target.closest('[data-wpos]');if(ps){const[lat,lon]=ps.dataset.wpos.split(',').map(Number);if(!Watch.wide)Watch.setTab('map');Watch.follow=false;setTimeout(()=>{Watch.map.setView([lat,lon],16);L.circleMarker([lat,lon],{radius:22,color:'#FF2BD6',weight:4,fill:false,interactive:false}).addTo(Watch.routeLay)},80)}
 });
 $('#wChatForm').addEventListener('submit',e=>{e.preventDefault();const i=$('#wChatIn');Watch.send(i.value).then(ok=>{if(ok){i.value='';i.focus()}})});
@@ -284,7 +300,7 @@ window.addEventListener('online',()=>{Watch.srcList().forEach(S=>S.m&&S.m.kick()
 /* ---------------- Ajouter un coureur à suivre ---------------- */
 const WAdd={
   open(){show('wadd');$('#waCode').value='';$('#waScan').hidden=!QR.ok();setTimeout(()=>$('#waCode').focus(),80)},
-  go(){const c=normCode($('#waCode').value);if(!validCode(c)){toast('Code invalide : il faut les 12 chiffres, ou colle le lien reçu.',true);return}QR.stop();Watch.add(c)}
+  go(){const c=normCode($('#waCode').value);if(!validCode(c)){toast('Code invalide : il faut le code complet (chiffres et lettres), ou colle le lien reçu.',true);return}QR.stop();Watch.add(c)}
 };
 $('#waGo').onclick=()=>WAdd.go();
 $('#waCode').addEventListener('keydown',e=>{if(e.key==='Enter')WAdd.go()});

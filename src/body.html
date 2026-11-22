@@ -55,7 +55,7 @@
   <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Suivre un coureur</h1></header>
   <main>
     <p>Le plus simple : ouvre le <b>lien</b> que le coureur t'a envoyé. Sinon, tape son code ou colle le lien ici.</p>
-    <label>Code ou lien<input type="text" id="waCode" autocomplete="off" spellcheck="false" placeholder="148 291 355 720" maxlength="300"></label>
+    <label>Code ou lien<input type="text" id="waCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="148 291 355 720 · K7P2 XM4Q" maxlength="300"></label>
     <div class="row"><button type="button" class="primary" id="waGo">👀 Suivre</button><button type="button" id="waScan" hidden>📷 Scanner le QR</button></div>
     <video id="waVideo" playsinline muted hidden></video>
     <p class="hint">Tu peux suivre plusieurs coureurs à la fois, sur la même carte. Un code de sortie Group Run marche aussi : tu suis tout le groupe, sans partager ta position.</p>
@@ -116,8 +116,8 @@
 <section id="join" class="screen">
   <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Rejoindre une sortie</h1></header>
   <main>
-    <label>Code de la sortie (12 chiffres)
-      <input type="text" id="jCode" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="148 291 355 720" maxlength="24"></label>
+    <label>Code de la sortie
+      <input type="text" id="jCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="148 291 355 720 · K7P2 XM4Q" maxlength="60"></label>
     <div class="row"><button type="button" class="primary" id="jLookup">🔎 Chercher</button><button type="button" id="jScan" hidden>📷 Scanner le QR</button></div>
     <button type="button" class="ok big" id="jApp" hidden>📱 Ouvrir dans l'application</button>
     <p class="hint" id="jAppNo" hidden>L'application n'est pas installée sur ce téléphone : tu peux continuer ici, dans le navigateur (écran allumé), ou <a href="https://github.com/gregmey0/followtrail/releases/latest/download/FollowTrail.apk">installer l'application</a>.</p>
@@ -194,7 +194,12 @@
       <label class="chk"><input type="checkbox" data-s="sim"> Mode simulation (position fictive, pour tester chez soi)</label>
       <p class="hint">En simulation, des flèches sous la carte déplacent ta position ; « 🏃 Courir » avance tout seul à 11 km/h.</p>
     </section>
-  </main>
+      <section class="card">
+      <h2>Personnes bloquées</h2>
+      <div id="sBlocked"></div>
+      <p class="hint">Contact, signaler un problème : <a id="sContact" href="https://github.com/gregmey0/followtrail/issues" target="_blank" rel="noopener">page du projet</a>.</p>
+    </section>
+</main>
 </section>
 
 <!-- AIDE -->
@@ -214,6 +219,7 @@
       <li>Ouvre le lien reçu, ou ajoute le code dans <b>Suivre un coureur</b>. Tu peux suivre <b>plusieurs coureurs</b> sur la même carte.</li>
       <li><b>🏃 Coureurs</b> : position, allure, dénivelé, VAM, le <b>tableau par tronçons</b> de 1 ou 5 km, et avec le GPX l'<b>arrivée estimée</b> et les heures de passage aux points du parcours.</li>
       <li><b>📣 Encourager</b> : messages rapides ou texte libre, signés de ton prénom.</li>
+      <li>Un message déplacé ? Touche-le pour <b>bloquer</b> son auteur ou le <b>signaler</b>. Débloquer : Réglages, tout en bas.</li>
       <li>Sur ordinateur ou tablette, la carte et la fiche du coureur s'affichent côte à côte.</li>
     </ul>
     <h2>Arrivée estimée</h2>
@@ -222,7 +228,7 @@
     <p>Pour chaque kilomètre (ou 5 km) : temps, allure et vitesse, D+ et D−, et <b>VAM</b> (mètres de D+ par heure). Le plus rapide est en vert, le plus lent en rouge. Avec un GPX suivi, l'altitude vient du tracé, plus juste que le GPS.</p>
     <h2>👥 Group Run</h2>
     <ul>
-      <li>L'organisateur crée la sortie et invite par QR code, lien ou code à 12 chiffres. Chacun voit tout le groupe sur la carte, les stats et tronçons de chacun, et la messagerie.</li>
+      <li>L'organisateur crée la sortie et invite par QR code, lien ou code. Chacun voit tout le groupe sur la carte, les stats et tronçons de chacun, et la messagerie.</li>
       <li>L'organisateur peut proposer des tracés GPX, chacun peut aussi importer le sien. « 🆘 Besoin d'aide » alerte tout le monde.</li>
     </ul>
     <h2>Téléphone verrouillé</h2>

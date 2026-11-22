@@ -2,7 +2,7 @@
 const Chat={n:-1,
   render(force){
     if(!Ride.on)return;
-    const list=$('#chatList'),arr=[...Ride.msgs.values()].sort((a,b)=>a.t-b.t);
+    const blk=Ride.blk(),list=$('#chatList'),arr=[...Ride.msgs.values()].filter(m=>!Moder.hidden(m,blk)).sort((a,b)=>a.t-b.t);
     if(!force&&arr.length===this.n&&Ride.tab!=='chat')return;
     const nearBottom=list.scrollHeight-list.scrollTop-list.clientHeight<120;
     this.n=arr.length;
@@ -11,8 +11,8 @@ const Chat={n:-1,
       const d=new Date(m.t).toLocaleDateString('fr-FR');let sep='';if(d!==day){day=d;sep=`<li class="day">${new Date(m.t).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</li>`}
       if(m.sys)return sep+`<li class="sys">${esc(m.text)} · ${hhmm(m.t)}</li>`;
       const mine=m.pid===Ride.pid,col=mine?'#00E5FF':colorOf(m.pid);
-      return sep+`<li class="msg${mine?' mine':''}${m.k==='sos'?' sos':''}${m.fw?' fw':''}"><div class="mh"><span class="dot" style="background:${col};${mine?'color:#000':''}">${esc(initials(m.name))}</span><b>${mine?'Moi':esc(m.name)}</b>${m.fw&&Ride.mode!=='live'?'<span class="tag">suit la sortie</span>':''}<time>${hhmm(m.t)}</time></div>
-        <p>${esc(m.text)}</p>${m.pos?`<button type="button" class="mini" data-pos="${m.pos.lat},${m.pos.lon}" data-pid="${esc(m.pid)}">📍 Voir sur la carte${GPS.last&&!mine?' · à '+fmtDist(dist(GPS.last,m.pos)):''}</button>`:''}</li>`}).join('')
+      return sep+`<li class="msg${mine?' mine':''}${m.k==='sos'?' sos':''}${m.fw?' fw':''}"${mine?'':` data-mid="${esc(m.id)}"`}><div class="mh"><span class="dot" style="background:${col};${mine?'color:#000':''}">${esc(initials(m.name))}</span><b>${mine?'Moi':esc(m.name)}</b>${m.fw&&Ride.mode!=='live'?'<span class="tag">suit la sortie</span>':''}<time>${hhmm(m.t)}</time></div>
+        <p>${esc(Moder.clean(m.text))}</p>${m.pos?`<button type="button" class="mini" data-pos="${m.pos.lat},${m.pos.lon}" data-pid="${esc(m.pid)}">📍 Voir sur la carte${GPS.last&&!mine?' · à '+fmtDist(dist(GPS.last,m.pos)):''}</button>`:''}</li>`}).join('')
       :`<li class="hint">${Ride.mode==='live'?'Les encouragements de ceux qui te suivent arrivent ici, et sont lus à voix haute (réglable). Réponds d\'un appui avec un message rapide.':'Pas encore de message. Écris au groupe ou utilise un message rapide.'}</li>`;
     if(nearBottom||force)list.scrollTop=list.scrollHeight;
   },
@@ -35,3 +35,6 @@ $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const i=$('#chat
 $('#chatList').addEventListener('click',e=>{const b=e.target.closest('[data-pos]');if(!b)return;
   const[lat,lon]=b.dataset.pos.split(',').map(Number);Ride.setTab('map');RideMap.follow=false;RideMap.btns();
   setTimeout(()=>{RideMap.map.setView([lat,lon],17);L.circleMarker([lat,lon],{radius:22,color:'#FF2BD6',weight:4,fill:false,interactive:false}).addTo(RideMap.routeLay);setTimeout(()=>{RideMap.routesDirty=true;Ride.dirtyView(true)},8000)},80)});
+/* toucher le message de quelqu'un : bloquer ou signaler (discret, pas de bouton visible) */
+$('#chatList').addEventListener('click',e=>{if(e.target.closest('button,a'))return;const li=e.target.closest('li[data-mid]');if(!li)return;
+  const m=Ride.msgs.get(li.dataset.mid);if(m)Moder.open(m,{org:Ride.isOrg,orgBlock:pid=>Ride.blockForAll(pid)}).then(v=>{if(v)Chat.render(true)})});

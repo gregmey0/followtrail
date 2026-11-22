@@ -19,6 +19,8 @@ const QUICK_LIVE=[
 ];
 let QUICK=QUICK_GROUP;
 const WATCH_MS=180000;
+/* arrêt automatique d'un partage oublié : 24 h sans bouger, ou 7 jours au total */
+const IDLE_END_MS=24*3600e3,MAX_SHARE_MS=7*24*3600e3;
 const SOS_MS=45*60000;
 
 const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mode:'group',
@@ -55,6 +57,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!this.ready)setTimeout(()=>{if(this.on&&!this.ready){this.ready=true;this.publishAll()}},5000);
     GPS.start();this.unsub=GPS.on(f=>this.onFix(f));Wake.on();Voice.unlock();
     this.tickI=setInterval(()=>this.tick(),1000);
+    clearInterval(this.expI);this.expI=setInterval(()=>this.checkExpiry(),600000);setTimeout(()=>this.checkExpiry(),20000);
     RideMap.reset();show('ride');this.setTab('map');
     if(this.link.session&&!this.isOrg)this.onSession(this.link.session);
     if(this.m.connected)this.onNet(true);
@@ -84,7 +87,18 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   },
   /* la connexion est capturée à l'appel : un message envoyé juste avant la fin (« a quitté », « terminée ») part quand même */
   pub(topic,obj){const m=this.m;if(!m)return;const t=this.base+'/'+topic;if(obj==null){m.publish(t,new Uint8Array(0),true);return}seal(this.key,obj).then(b=>m.publish(t,b,true))},
-  sessionMsg(){const s=this.session;return{v:1,type:this.mode==='live'?'live':'group',name:s.name,created:s.created,status:s.status,org:this.pid,orgName:this.name,routes:Object.values(this.routes).map(r=>({id:r.id,name:r.name,L:Math.round(r.L),gain:r.gain})),fin:s.fin||undefined}},
+  sessionMsg(){const s=this.session;return{v:1,type:this.mode==='live'?'live':'group',name:s.name,created:s.created,status:s.status,org:this.pid,orgName:this.name,routes:Object.values(this.routes).map(r=>({id:r.id,name:r.name,L:Math.round(r.L),gain:r.gain})),fin:s.fin||undefined,blk:s.blk&&s.blk.length?s.blk:undefined}},
+  /* personnes dont les messages sont masqués pour tous (décidé par l'organisateur ou le coureur) */
+  blk(){return(this.session&&this.session.blk)||[]},
+  blockForAll(pid){if(!this.isOrg)return;const s=this.session;s.blk=[...new Set((s.blk||[]).concat(pid))].slice(-200);this.publishSession();this.save();Chat.render(true)},
+  unblockForAll(pid){if(!this.isOrg||!this.session.blk)return;this.session.blk=this.session.blk.filter(x=>x!==pid);this.publishSession();this.save();Chat.render(true)},
+  /* partage oublié : on l'arrête et on efface le relais */
+  checkExpiry(){
+    if(!this.on)return;const now=Date.now(),t=this.track,last=t.length?t[t.length-1][2]:this.start;
+    if(now-last<IDLE_END_MS&&now-this.start<MAX_SHARE_MS)return;
+    toast(this.mode==='live'?'Partage arrêté automatiquement : aucun mouvement depuis 24 h.':'Sortie quittée automatiquement : aucun mouvement depuis 24 h.',true);
+    if(this.isOrg)this.endForAll(true);else this.stop('left');
+  },
   publishSession(){if(this.isOrg&&this.session)this.pub('s',this.sessionMsg())},
   publishRoute(r){if(this.isOrg)this.pub('route/'+r.id,encRoute(r))},
   publishOwn(){this.pub('r/'+this.pid,this.own?encRoute(this.own):null)},
@@ -144,7 +158,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if((!had||Date.now()-had.upd>WATCH_MS)&&live&&Date.now()-(o.upd||0)<WATCH_MS&&this.mode==='live'){this.sysMsg('👀 '+this.watchers[id].name+' suit ta course');toast('👀 '+this.watchers[id].name+' suit ta course')}
     this.renderHead();
   },
-  watching(){const n=Date.now();return Object.values(this.watchers).filter(w=>n-w.upd<WATCH_MS)},
+  watching(){const n=Date.now(),b=this.blk();return Object.values(this.watchers).filter(w=>n-w.upd<WATCH_MS&&!b.includes(w.pid)&&!Moder.hidden({pid:w.pid},[]))},
   onSession(s){
     if(!this.on||!s)return;
     if(s.status==='closed'||s.status==='deleted'){if(!this.isOrg||s.status==='deleted')this.stop('closed');return}
@@ -223,7 +237,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(this.msgs.has(m.id))return;
     m=Object.assign({},m,{rt:Date.now()});this.msgs.set(m.id,m);
     if(this.msgs.size>400){const old=[...this.msgs.values()].sort((a,b)=>a.t-b.t).slice(0,this.msgs.size-400);old.forEach(x=>this.msgs.delete(x.id))}
-    if(!mine&&!m.sys&&m.t>this.syncT-10000)this.notify(m);
+    if(!mine&&!m.sys&&m.t>this.syncT-10000&&!Moder.hidden(m,this.blk()))this.notify(m);
     if(this.tab==='chat'&&document.visibilityState==='visible')this.lastRead=Date.now();
     Chat.render();this.renderHead();this.save();
   },
@@ -231,13 +245,13 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   notify(m){
     const sos=m.k==='sos';
     if(document.visibilityState==='hidden'&&NATIVE&&settings.notif){
-      try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':m.fw?'📣 ':'💬 ')+m.name,body:m.text,smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
+      try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':m.fw?'📣 ':'💬 ')+m.name,body:Moder.clean(m.text),smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
     if(sos){Snd.sos();vib([600,200,600,200,900])}else{if(settings.msgSound)Snd.msg();vib([80,60,80])}
     /* lecture à voix haute : on court sans regarder l'écran */
-    if(settings.speak)setTimeout(()=>Voice.say(sos?'Alerte : '+m.name+' a besoin d\'aide':(m.fw?'Message de ':'')+m.name+' : '+m.text),sos?1800:450);
-    if(this.tab!=='chat'||sos)toast((sos?'':'💬 ')+m.name+' : '+m.text,sos);
+    if(settings.speak)setTimeout(()=>Voice.say(sos?'Alerte : '+m.name+' a besoin d\'aide':(m.fw?'Message de ':'')+m.name+' : '+Moder.speech(m.text)),sos?1800:450);
+    if(this.tab!=='chat'||sos)toast((sos?'':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
   },
-  unread(){let n=0;this.msgs.forEach(m=>{if(!m.sys&&m.pid!==this.pid&&m.rt>this.lastRead)n++});return n},
+  unread(){let n=0;const b=this.blk();this.msgs.forEach(m=>{if(!m.sys&&m.pid!==this.pid&&m.rt>this.lastRead&&!Moder.hidden(m,b))n++});return n},
   send(text,q){
     text=String(text||'').trim().slice(0,500);if(!text||!this.on)return false;
     const f=GPS.last,m={id:uid(),t:Date.now(),pid:this.pid,name:this.name,text};
@@ -277,7 +291,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!this.on)return;
     const silent=reason==='closed';
     if(!silent){this.status='left';this.publish(true);this.publishChunks()}
-    this.on=false;this.ended=true;clearInterval(this.tickI);if(this.unsub)this.unsub();this.unsub=null;
+    this.on=false;this.ended=true;clearInterval(this.tickI);clearInterval(this.expI);if(this.unsub)this.unsub();this.unsub=null;
     GPS.stop();Wake.off();
     const sm=this.summary();if(!store.set(K.last,sm)){sm.track=null;store.set(K.last,sm)}
     store.del(K.active);
@@ -292,10 +306,10 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       buttons:[{label:'Continuer la sortie',value:false,primary:true},{label:'🚪 Quitter',value:true,danger:true}]});
     if(v)this.stop('left');
   },
-  async endForAll(){
+  async endForAll(auto){
     if(!this.isOrg)return;
     const live=this.mode==='live';
-    const v=await modal(live?{title:'Terminer le partage ?',body:'<p>Ceux qui te suivent voient que ta course est terminée, avec ton bilan (distance, temps, dénivelé). Ta position, ta trace et les messages sont ensuite effacés du relais. Tu gardes ton bilan et ta trace GPX.</p>',
+    const v=auto?true:await modal(live?{title:'Terminer le partage ?',body:'<p>Ceux qui te suivent voient que ta course est terminée, avec ton bilan (distance, temps, dénivelé). Ta position, ta trace et les messages sont ensuite effacés du relais. Tu gardes ton bilan et ta trace GPX.</p>',
       buttons:[{label:'Continuer le partage',value:false,primary:true},{label:'⏹ Terminer le partage',value:true,danger:true}]}
       :{title:'Terminer la sortie pour tous ?',body:'<p>Le partage de position s\'arrête sur tous les téléphones. Positions, traces et messages sont ensuite effacés du relais. Chacun garde son bilan et sa trace GPX.</p>',
       buttons:[{label:'Continuer la sortie',value:false,primary:true},{label:'⏹ Terminer pour tous',value:true,danger:true}]});

@@ -41,7 +41,7 @@ const Join={link:null,stream:null,own:null,
   leave(){this.stopScan();if(this.link){this.link.close();this.link=null}},
   async lookup(){
     const code=normCode($('#jCode').value);
-    if(!validCode(code)){toast('Code invalide : il faut les 12 chiffres, par exemple 148 291 355 720',true);return}
+    if(!validCode(code)){toast('Code invalide : il faut le code complet, par exemple 148 291 355 720 · K7P2 XM4Q',true);return}
     $('#jCode').value=fmtCode(code);$('#jConfirm').hidden=true;this.appBtn(code);$('#jInfo').innerHTML='<p class="card">⏳ Recherche de la sortie…</p>';
     if(this.link){this.link.close();this.link=null}
     let link=null;try{link=await SessionLink.connect(code)}catch(e){}

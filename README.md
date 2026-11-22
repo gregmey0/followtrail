@@ -27,7 +27,11 @@ Sur ordinateur ou tablette, la carte et la fiche du coureur s'affichent côte à
 
 ## Relais et confidentialité
 
-Les échanges passent par un relais MQTT public (HiveMQ, à défaut EMQX). Tout est chiffré de bout en bout (AES-GCM) avec une clé dérivée du code : le relais ne voit que des données illisibles. En fin de sortie ou de partage, positions, traces et messages sont effacés du relais ; pour une course, seul le bilan final reste lisible par ceux qui ont le lien.
+Les échanges passent par un relais MQTT public (HiveMQ, à défaut EMQX). Tout est chiffré de bout en bout (AES-GCM) avec une clé dérivée du code : le relais ne voit que des données illisibles. Le code (12 chiffres + une clé de 8 caractères, par exemple `148 291 355 720 · K7P2 XM4Q`) est impossible à retrouver en essayant toutes les combinaisons ; les anciens codes de 12 chiffres restent lisibles.
+
+En fin de sortie ou de partage, positions, traces et messages sont effacés du relais ; pour une course, seul le bilan final reste lisible par ceux qui ont le lien. Un partage oublié s'arrête tout seul après 24 h sans mouvement (ou 7 jours), et un partage abandonné depuis 48 h est effacé par le premier qui ouvre son lien.
+
+Messages : les insultes courantes sont masquées ; toucher un message permet de bloquer son auteur ou de le signaler. Le coureur (ou l'organisateur) qui bloque quelqu'un masque ses messages chez tout le monde. Les personnes bloquées se débloquent en bas des Réglages.
 
 ## Développement
 

@@ -1,24 +1,35 @@
 /* ---------------- Relais chiffré (MQTT sur WebSocket) ----------------
    Les messages passent par un relais public. Ils sont chiffrés (AES-GCM) avec une clé dérivée du code
    de la sortie (PBKDF2), et le nom du canal est lui aussi dérivé du code : sans le code, rien n'est lisible.
-   Code : 12 chiffres, le premier désigne le relais. */
+   Code : 12 chiffres (le premier désigne le relais) + une clé de 8 caractères, « 148291355720-K7P2XM4Q ».
+   La clé rend impossible de retrouver les codes en essayant toutes les combinaisons hors ligne à partir
+   de ce que voit n'importe qui sur un relais public. Les anciens codes de 12 chiffres seuls restent lisibles. */
 const BROKERS={'1':'wss://broker.hivemq.com:8884/mqtt','2':'wss://broker.emqx.io:8084/mqtt'};
 (()=>{const t=store.get('flt.testbroker',null);if(t)BROKERS['9']=t})();
 const WEB_URL='https://gregmey0.github.io/followtrail/';
 const APP={name:'Follow Trail',scheme:'followtrail',pkg:'io.github.gregmey0.followtrail',apk:'https://github.com/gregmey0/followtrail/releases/latest/download/FollowTrail.apk'};
 function appIntent(code){const fb=location.origin+location.pathname+'?noapp=1#join-'+code;
   return`intent://join-${code}#Intent;scheme=${APP.scheme};package=${APP.pkg};S.browser_fallback_url=${encodeURIComponent(fb)};end`}
-function newCode(b){let s=b;while(s.length<12){const r=crypto.getRandomValues(new Uint8Array(16));for(const x of r)if(x<250&&s.length<12)s+=String(x%10)}return s}
-function normCode(s){const m=/(?:join|live)-([0-9 -]+)/i.exec(String(s||''));return(m?m[1]:String(s||'')).replace(/\D/g,'')}
-function validCode(c){return /^\d{12}$/.test(c)&&!!BROKERS[c[0]]}
-const fmtCode=c=>c.replace(/(\d{3})(?=\d)/g,'$1 ');
+const SEC_ABC='23456789ABCDEFGHJKMNPQRSTUVWXYZ';   /* sans 0, 1, I, L, O : pas de confusion en tapant */
+function newCode(b){let s=b,k='';
+  while(s.length<12){const r=crypto.getRandomValues(new Uint8Array(16));for(const x of r)if(x<250&&s.length<12)s+=String(x%10)}
+  while(k.length<8){const r=crypto.getRandomValues(new Uint8Array(16));for(const x of r)if(x<248&&k.length<8)k+=SEC_ABC[x%31]}
+  return s+'-'+k}
+/* forme canonique : « 148291355720 » (ancien) ou « 148291355720-K7P2XM4Q », à partir d'un lien ou d'un code tapé */
+function normCode(s){s=String(s||'');
+  const m=/(?:join|live)-(\d{12})(?:-([0-9a-z]{8}))?(?![0-9a-z])/i.exec(s);if(m)return m[1]+(m[2]?'-'+m[2].toUpperCase():'');
+  const t=s.toUpperCase().replace(/[^0-9A-Z]/g,'');
+  if(/^\d{12}[0-9A-Z]{8}$/.test(t))return t.slice(0,12)+'-'+t.slice(12);
+  return t}
+function validCode(c){return /^\d{12}(-[2-9A-HJKMNP-Z]{8})?$/.test(c)&&!!BROKERS[c[0]]}
+const fmtCode=c=>{const[d,k]=String(c).split('-');return d.replace(/(\d{3})(?=\d)/g,'$1 ')+(k?' · '+k.slice(0,4)+' '+k.slice(4):'')};
 const webBase=()=>NATIVE||!/^https?:/.test(location.protocol)?WEB_URL:location.origin+location.pathname;
 function joinURL(code){return webBase()+'#join-'+code}
 /* lien de suivi d'une course : s'ouvre dans un simple navigateur */
 function liveURL(code){return webBase()+'#live-'+code}
 async function deriveKey(code){
-  const enc=new TextEncoder(),base=await crypto.subtle.importKey('raw',enc.encode(code),'PBKDF2',false,['deriveBits']);
-  const bits=new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode('followtrail-v1'),iterations:150000,hash:'SHA-256'},base,384));
+  const[d,k]=String(code).split('-'),enc=new TextEncoder(),base=await crypto.subtle.importKey('raw',enc.encode(k?d+':'+k:d),'PBKDF2',false,['deriveBits']);
+  const bits=new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode(k?'followtrail-v2':'followtrail-v1'),iterations:150000,hash:'SHA-256'},base,384));
   const key=await crypto.subtle.importKey('raw',bits.slice(0,32),'AES-GCM',false,['encrypt','decrypt']);
   return{key,tid:[...bits.slice(32,44)].map(b=>b.toString(16).padStart(2,'0')).join('')};
 }

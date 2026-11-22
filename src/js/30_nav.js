@@ -67,7 +67,7 @@ $('#hSettings').onclick=()=>Settings.open();
 $('#hHelp').onclick=()=>show('help');
 
 /* ---------------- Réglages ---------------- */
-const Settings={open(){bindSettings();show('settings')}};
+const Settings={open(){bindSettings();Moder.renderSettings();if(CONTACT){const a=$('#sContact');a.href='mailto:'+CONTACT;a.textContent=CONTACT}show('settings')}};
 function bindSettings(){
   const sel=$('#setLayer');sel.innerHTML=Object.entries(LAYERS).map(([k,v])=>`<option value="${k}">${esc(v.name)}</option>`).join('');
   $$('#settingsBox [data-s]').forEach(el=>{
