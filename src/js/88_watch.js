@@ -156,8 +156,8 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(this.routesDirty){this.routesDirty=false;this.routeLay.clearLayers();const done=new Set();
       ppl.forEach(({S,R})=>{const r=this.routeOf(S,R);if(!r||done.has(r))return;done.add(r);const col=colorOf(R.pid);
         L.polyline(r.pts.map(q=>[q[0],q[1]]),{color:'#000',weight:ppl.length>1?7:10,opacity:.4,interactive:false}).addTo(this.routeLay);
-        /* un seul coureur : tracé magenta ; plusieurs : tracé en pointillés à sa couleur, la trace parcourue reste en trait plein */
-        L.polyline(r.pts.map(q=>[q[0],q[1]]),ppl.length>1?{color:col,weight:4,opacity:.75,dashArray:'9 8',interactive:false}:{color:'#FF2BD6',weight:5,opacity:.9,interactive:false}).addTo(this.routeLay);
+        /* un seul coureur : tracé jaune (sa trace est à sa couleur) ; plusieurs : tracé en pointillés à sa couleur, la trace parcourue reste en trait plein */
+        L.polyline(r.pts.map(q=>[q[0],q[1]]),ppl.length>1?{color:col,weight:4,opacity:.75,dashArray:'9 8',interactive:false}:{color:'#FFD23F',weight:5,opacity:.9,interactive:false}).addTo(this.routeLay);
         const a=r.pts[0],b=r.pts[r.pts.length-1];L.marker([b[0],b[1]],{icon:flagIcon('end'),interactive:false}).addTo(this.routeLay);L.marker([a[0],a[1]],{icon:flagIcon('start'),interactive:false}).addTo(this.routeLay);
         (r.wpts||[]).forEach(w=>{if(w.a!=null)L.marker([w.lat,w.lon],{icon:L.divIcon({className:'wpmk',html:`<i></i><em>${esc(w.n)}</em>`,iconSize:[16,16],iconAnchor:[8,8]}),interactive:false}).addTo(this.routeLay)})})}
     const seenT=new Set(),seenM=new Set();

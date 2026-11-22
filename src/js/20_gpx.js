@@ -18,15 +18,20 @@ function parseRouteGPX(text,fileName){
   const wpts=(trk||rte)?q(doc,'wpt').map(n=>{const p=read(n);return{n:(kid(n,'name')||kid(n,'desc')||kid(n,'type')||'Point').slice(0,40),lat:p[0],lon:p[1]}}).filter(w=>ok([w.lat,w.lon])).slice(0,60):[];
   return makeRoute({name:name.slice(0,80),pts,wpts});
 }
-/* Douglas-Peucker en mètres (projection locale) */
+/* Douglas-Peucker en mètres (projection locale), qui tient compte du relief :
+   un point est gardé s'il s'écarte de plus de tol à l'horizontale ou de plus de 1,5 × tol en altitude
+   (sinon une portion droite qui monte puis descend perdrait son relief, et le D+ serait sous-estimé) */
 function simplifyPts(pts,tol){
   if(pts.length<3)return pts.slice();
-  const lat0=pts[0][0]*RAD,kx=Math.cos(lat0)*RAD*RE,ky=RAD*RE;
-  const X=pts.map(p=>p[1]*kx),Y=pts.map(p=>p[0]*ky),keep=new Uint8Array(pts.length);keep[0]=keep[pts.length-1]=1;
+  const lat0=pts[0][0]*RAD,kx=Math.cos(lat0)*RAD*RE,ky=RAD*RE,vt=1.5*tol;
+  const X=pts.map(p=>p[1]*kx),Y=pts.map(p=>p[0]*ky),E=pts.map(p=>p[2]),keep=new Uint8Array(pts.length);keep[0]=keep[pts.length-1]=1;
   const st=[[0,pts.length-1]];
   while(st.length){const[a,b]=st.pop();let md=-1,mi=-1;const dx=X[b]-X[a],dy=Y[b]-Y[a],L2=dx*dx+dy*dy;
-    for(let i=a+1;i<b;i++){let t=L2?((X[i]-X[a])*dx+(Y[i]-Y[a])*dy)/L2:0;t=Math.max(0,Math.min(1,t));const ex=X[a]+t*dx-X[i],ey=Y[a]+t*dy-Y[i],d=ex*ex+ey*ey;if(d>md){md=d;mi=i}}
-    if(mi>0&&md>tol*tol){keep[mi]=1;st.push([a,mi],[mi,b])}}
+    for(let i=a+1;i<b;i++){let t=L2?((X[i]-X[a])*dx+(Y[i]-Y[a])*dy)/L2:0;t=Math.max(0,Math.min(1,t));const ex=X[a]+t*dx-X[i],ey=Y[a]+t*dy-Y[i];
+      let d=Math.sqrt(ex*ex+ey*ey)/tol;
+      if(E[i]!=null&&E[a]!=null&&E[b]!=null){const ev=Math.abs(E[a]+(i-a)/(b-a)*(E[b]-E[a])-E[i])/vt;if(ev>d)d=ev}
+      if(d>md){md=d;mi=i}}
+    if(mi>0&&md>1){keep[mi]=1;st.push([a,mi],[mi,b])}}
   return pts.filter((p,i)=>keep[i]);
 }
 function makeRoute({id,name,pts,owner,raw,wpts}){
