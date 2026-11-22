@@ -16,7 +16,7 @@ const Stats={
       Ride.others().forEach(R=>{const st=R.st;if(st.status!=='on'||!st.pr||!st.f||st.pr.w)return;
         if(st.f.k==='org'&&Ride.follow&&Ride.follow.k==='org'&&st.f.id===Ride.follow.id)dots.push({a:st.pr.a,col:colorOf(R.pid),title:st.name})});
       if(ok&&!pr.wait)dots.push({a:pr.along,col:'#00E5FF',me:true,title:'Moi'});
-      h+=routeBlock({r:fr,a:ok&&!pr.wait?pr.along:null,off:ok?pr.off:null,wait:ok?pr.wait:false,pe:Ride.pe,tRef:GPS.last?GPS.last.t:now,fin:Ride.finT,t0,dots});
+      h+=routeBlock({r:fr,a:ok&&!pr.wait?pr.along:null,off:ok?pr.off:null,wait:ok?pr.wait:false,pe:Ride.pe,tRef:GPS.last?GPS.last.t:now,fin:Ride.finT,t0:Ride.runStart,passed:Ride.passed,dots});
     }else h+=`<section class="card"><h2>🧭 Parcours</h2><p class="hint">Importe le GPX du parcours (☰ Menu › Tracé GPX) : avancement, dénivelé restant${live?', arrivée estimée pour ceux qui te suivent':' et arrivée estimée'}.</p></section>`;
     h+=`<section class="card">${segTable(tr,settings.seg)}</section>`;
     if(!live)h+=`<section class="card"><h2>Le groupe</h2><ul class="group">${this.groupRows()}</ul></section>`;

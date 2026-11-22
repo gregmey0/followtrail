@@ -41,6 +41,7 @@
       <p class="hint">Avec le GPX, ceux qui te suivent voient ton avancement, le dénivelé restant, ton <b>arrivée estimée</b> et tes heures de passage aux points du GPX (ravitaillements…). Tu pourras aussi l'ajouter pendant la course.</p>
       <ul id="lRoute" class="rlist"></ul>
       <button type="button" id="lAddGpx">📂 Choisir le GPX</button>
+      <button type="button" id="lPlan" hidden>⏱ Ajouter un plan de course (facultatif)</button>
     </section>
     <section class="card">
       <label class="chk"><input type="checkbox" id="lEco"> Mode économie (ultra) : position envoyée toutes les 30 s au lieu de 5 s</label>
@@ -91,6 +92,18 @@
     <button type="button" data-wtab="chat" aria-pressed="false">📣<small>Encourager</small><span id="wBadge" class="badge" hidden></span></button>
     <button type="button" id="wMenu">☰<small>Menu</small></button>
   </nav>
+</section>
+
+<!-- REJOUER -->
+<section id="replay" class="screen">
+  <header class="bar ridebar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 id="rpTitle">Rejouer</h1></header>
+  <div class="rpwrap"><div id="rpMap"></div><div id="rpChips" class="chips wchips" aria-live="off"></div></div>
+  <div class="rpctl">
+    <div class="rptime"><b id="rpClock">--:--</b><span id="rpEl"></span><span class="rpdur">/ <span id="rpDur"></span></span></div>
+    <input type="range" id="rpSlider" min="0" max="1" value="0" step="1" aria-label="Moment de la sortie">
+    <div class="rpbtns"><button type="button" id="rpBack15" aria-label="Reculer">⏪</button><button type="button" class="primary" id="rpPlay">▶ Lecture</button><button type="button" id="rpFwd15" aria-label="Avancer">⏩</button>
+      <label class="rpspeed">Vitesse<select id="rpSpeed"></select></label></div>
+  </div>
 </section>
 
 <!-- CRÉER -->
@@ -187,7 +200,7 @@
       <label class="chk"><input type="checkbox" data-s="speak"> Lire les messages reçus à voix haute (encouragements, groupe)</label>
       <label class="chk"><input type="checkbox" data-s="msgSound"> Son à l'arrivée d'un message</label>
       <label class="chk"><input type="checkbox" data-s="vibrate"> Vibrations</label>
-      <label class="chk native-only"><input type="checkbox" data-s="notif"> Notification des messages téléphone verrouillé</label>
+      <label class="chk"><input type="checkbox" data-s="notif"> Notifications des messages et des alertes (SOS, sortie de tracé)</label>
     </section>
     <section class="card">
       <h2>Essai</h2>
@@ -210,9 +223,10 @@
     <ol>
       <li>Indique le nom de la course et ton prénom, choisis si possible le <b>GPX du parcours</b>, puis <b>Démarrer le partage</b>.</li>
       <li>Envoie le <b>lien</b> (SMS, WhatsApp…). Ceux qui le reçoivent l'ouvrent dans un simple navigateur, sans rien installer.</li>
+      <li>Facultatif : <b>⏱ Plan de course</b>, après le GPX. Donne ton objectif d'arrivée, « Répartir » calcule les temps aux ravitos (au prorata des km-effort), puis corrige ce que tu veux. Ceux qui te suivent voient l'heure prévue à chaque point et ton avance ou ton retard ; une voix te l'annonce à chaque point.</li>
       <li>Sur la ligne de départ : ☰ Menu › <b>Remettre les compteurs à zéro</b> si tu as partagé pendant le trajet.</li>
       <li>Les <b>encouragements</b> arrivent en notification et sont <b>lus à voix haute</b>. Réponds d'un appui avec les messages rapides (« 🙏 Merci ! », « 🥤 Au ravito »…).</li>
-      <li>À l'arrivée : ☰ Menu › <b>Terminer le partage</b>. Ceux qui te suivent voient ton bilan.</li>
+      <li>À l'arrivée : ☰ Menu › <b>Terminer le partage</b>. Ceux qui te suivent voient ton bilan, et <b>▶ Rejouer</b> repasse la course en accéléré.</li>
     </ol>
     <h2>👀 Suivre un coureur</h2>
     <ul>
@@ -230,11 +244,13 @@
     <ul>
       <li>L'organisateur crée la sortie et invite par QR code, lien ou code. Chacun voit tout le groupe sur la carte, les stats et tronçons de chacun, et la messagerie.</li>
       <li>L'organisateur peut proposer des tracés GPX, chacun peut aussi importer le sien. « 🆘 Besoin d'aide » alerte tout le monde.</li>
+      <li>Organisateur : ☰ Menu › <b>M'alerter si quelqu'un quitte le tracé</b> (au-delà de l'écart réglé, pendant plus de 30 s).</li>
+      <li>☰ Menu › <b>Rejouer</b> : toute la sortie en accéléré, tout le monde sur la carte. Aussi depuis le bilan, à la fin.</li>
     </ul>
     <h2>Téléphone verrouillé</h2>
     <ul>
       <li><b>Appli (Android, iPhone)</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute. Sur iPhone, autoriser la position « Toujours ».</li>
-      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte.</li>
+      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte ; messages et alertes SOS s'affichent en notification si tu les autorises, tant que la page reste ouverte en arrière-plan.</li>
       <li>En zone blanche, tout repart dès le retour du réseau : la trace complète est renvoyée.</li>
       <li>Course longue : le <b>mode économie</b> envoie la position toutes les 30 s.</li>
     </ul>

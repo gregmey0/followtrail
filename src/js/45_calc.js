@@ -107,7 +107,7 @@ function profileSVG(r,dots){
     <text x="${W-4}" y="${H-5}" text-anchor="end" class="pt">${fmtKm(r.L)} km</text><text x="4" y="${H-5}" class="pt">0</text>${dots2}</svg>`;
 }
 /* bloc « tracé suivi » : avancement, arrivée estimée, points de passage, profil.
-   o = {r, a (distance le long du tracé), off, wait, pe (s par km-effort), tRef, dots, fin (course terminée)} */
+   o = {r, a (distance le long du tracé), off, wait, pe (s par km-effort), tRef, dots, fin (course terminée), t0 (départ), passed ({n° du point : heure})} */
 function routeBlock(o){
   const r=o.r;if(!r)return'';
   const ok=o.a!=null&&!o.wait,pct=ok&&r.L?Math.min(100,Math.round(o.a/r.L*100)):0,offLim=settings.offDist||50;
@@ -115,13 +115,44 @@ function routeBlock(o){
     <p><b>${ok?fmtKm(o.a):'—'} / ${fmtKm(r.L)} km</b>${r.gain!=null?` · D+ ${r.gain} m`:''}${ok?` · ${pct} %`:o.wait?` · pas encore sur le tracé${o.off!=null?' (à '+fmtDist(o.off)+')':''}`:' · en attente du GPS'}</p>
     ${ok&&o.off>offLim?`<p class="warnbox">⚠ Hors tracé : ${fmtDist(o.off)}</p>`:''}
     <div class="pbar"><i style="width:${pct}%"></i></div>`;
-  if(o.fin)h+=`<p class="finbox">🏁 Arrivée à ${fmtClock(o.fin)}${o.t0?' · '+fmtTime(o.fin-o.t0):''}</p>`;
+  const plan=hasPlan(r),passed=o.passed||{},clk=sec=>o.t0?fmtClock(o.t0+sec*1000):fmtHM(sec);
+  if(o.fin)h+=`<p class="finbox">🏁 Arrivée à ${fmtClock(o.fin)}${o.t0?' · '+fmtTime(o.fin-o.t0):''}${plan&&r.pf&&o.t0?' · '+fmtDelta(r.pf-(o.fin-o.t0)/1000):''}</p>`;
+  if(plan&&ok&&!o.fin&&o.t0){const d=planDelta(r,o.a,o.t0,o.tRef);if(d!=null)h+=`<p class="plandelta ${d>=60?'ahead':d<=-60?'late':''}">⏱ Plan de course : <b>${fmtDelta(d)}</b></p>`}
+  else if(plan&&!o.t0&&r.pf)h+=`<p class="hint">⏱ Plan de course : arrivée prévue en ${fmtHM(r.pf)}</p>`;
   if(ok&&!o.fin){
     const e=etaInfo(r,o.a,o.pe,o.tRef);
     h+=`<div class="eta"><div><span>Reste</span><b>${fmtKm(e.dLeft)} km</b><small>${e.gLeft!=null?'D+ '+Math.round(e.gLeft)+' m · ':''}${dec(e.effLeft,1)} km-effort</small></div>
-      <div class="fin"><span>🏁 Arrivée estimée</span>${e.fin?`<b>${fmtClock(e.fin)}</b><small>dans ${fmtDur(Math.max(0,e.fin-Date.now()))}</small>`:'<b>…</b><small>calculée après 2 km-effort sur le tracé</small>'}</div></div>`;
-    if(e.wps.length)h+=`<ul class="wps">${e.wps.slice(0,6).map(w=>`<li><span><b>${esc(w.n)}</b><small>km ${fmtKm(w.a)} · dans ${fmtDist(w.d)}</small></span><span class="wt">${w.t?fmtClock(w.t):'…'}</span></li>`).join('')}</ul>`;
+      <div class="fin"><span>🏁 Arrivée estimée</span>${e.fin?`<b>${fmtClock(e.fin)}</b><small>dans ${fmtDur(Math.max(0,e.fin-Date.now()))}${plan&&r.pf?' · prévue '+clk(r.pf):''}</small>`:`<b>…</b><small>calculée après 2 km-effort sur le tracé${plan&&r.pf?' · prévue '+clk(r.pf):''}</small>`}</div></div>`;
+    if(plan){
+      /* avec un plan : tous les points, passés (heure réelle) et à venir (estimée et prévue) */
+      const up=new Map(e.wps.map(w=>[w.a,w]));
+      const rows=(r.wpts||[]).map((w,i)=>{if(w.a==null)return'';const pt=passed[i],u=up.get(w.a),pl=w.p>0?w.p:null;
+        if(pt)return`<li class="done"><span><b>✓ ${esc(w.n)}</b><small>km ${fmtKm(w.a)}${pl?' · prévu '+clk(pl):''}</small></span><span class="wt">${hhmm(pt)}${pl&&o.t0?`<small>${fmtDelta(pl-(pt-o.t0)/1000)}</small>`:''}</span></li>`;
+        if(!u)return'';
+        return`<li><span><b>${esc(w.n)}</b><small>km ${fmtKm(w.a)} · dans ${fmtDist(u.d)}${pl?' · prévu '+clk(pl):''}</small></span><span class="wt">${u.t?fmtClock(u.t):'…'}${pl&&o.t0&&u.t?`<small>${fmtDelta(pl-(u.t-o.t0)/1000)}</small>`:''}</span></li>`}).join('');
+      if(rows)h+=`<ul class="wps">${rows}</ul>`;
+    }else if(e.wps.length)h+=`<ul class="wps">${e.wps.slice(0,6).map(w=>`<li><span><b>${esc(w.n)}</b><small>km ${fmtKm(w.a)} · dans ${fmtDist(w.d)}</small></span><span class="wt">${w.t?fmtClock(w.t):'…'}</span></li>`).join('')}</ul>`;
     if(o.pe)h+=`<p class="hint">Estimation à ${fmtPaceS(o.pe)} par km-effort (allure récente et depuis le départ, pauses comprises).</p>`;
   }
   return h+profileSVG(r,o.dots)+'</section>';
 }
+
+/* ---------- plan de course ----------
+   Temps prévus depuis le départ (secondes) aux points du GPX (w.p) et à l'arrivée (r.pf).
+   Entre deux points du plan, le temps prévu est réparti au prorata des km-effort. */
+function planPoints(r){if(!r)return[];const p=[[0,0]];(r.wpts||[]).forEach(w=>{if(w.a!=null&&w.p>0)p.push([w.a,w.p])});if(r.pf>0)p.push([r.L,r.pf]);p.sort((x,y)=>x[0]-y[0]);return p.length>1?p:[]}
+const hasPlan=r=>planPoints(r).length>1;
+function planAt(r,a){const p=planPoints(r);if(p.length<2||a==null)return null;
+  for(let i=1;i<p.length;i++)if(a<=p[i][0]+1){const e0=effortAt(r,p[i-1][0]),e1=effortAt(r,p[i][0]),e=effortAt(r,Math.max(p[i-1][0],a));return p[i-1][1]+(e1>e0?Math.min(1,(e-e0)/(e1-e0)):0)*(p[i][1]-p[i-1][1])}
+  return null}
+/* répartir un temps total sur les points, au prorata des km-effort (allure régulière) */
+function planSpread(r,total){const E=effortAt(r,r.L)||1;(r.wpts||[]).forEach(w=>{if(w.a!=null)w.p=Math.round(total*effortAt(r,w.a)/E)});r.pf=Math.round(total)}
+/* « 3:45 », « 3h45 », « 3.45 », « 26:10 » ; un nombre seul = des minutes */
+function parseHM(s){s=String(s||'').trim().toLowerCase().replace(/\s/g,'');if(!s)return null;
+  let m=/^(\d{1,3})[h:.,](\d{1,2})?(?:[:.,](\d{1,2}))?$/.exec(s);if(m)return(+m[1])*3600+(+(m[2]||0))*60+(+(m[3]||0));
+  m=/^(\d{1,4})$/.exec(s);return m?(+m[1])*60:NaN}
+const fmtHM=sec=>{sec=Math.round(sec/60);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')};
+/* écart au plan (s) : positif = en avance */
+function planDelta(r,a,t0,tRef){const p=planAt(r,a);return p==null||!t0?null:p-(tRef-t0)/1000}
+function fmtDelta(d,short){if(d==null)return'';const m=Math.round(Math.abs(d)/60);
+  if(m<1)return short?'⏱ =':'dans les temps';return short?(d>0?'⏱ +':'⏱ −')+m+' min':m+' min '+(d>0?'d\'avance':'de retard')}

@@ -88,6 +88,15 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const tap = e.notification.data || null;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    const c = cs[0];
+    if (c) { c.postMessage({ flt: 'tap', tap }); return c.focus(); }
+    return self.clients.openWindow('./');
+  }));
+});
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return; // fonds de carte, relais : réseau direct

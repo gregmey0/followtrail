@@ -1,6 +1,6 @@
 /* ---------------- Navigation ---------------- */
 let current='home';
-const leaveHooks={join:()=>Join.leave(),wadd:()=>QR.stop()};
+const leaveHooks={join:()=>Join.leave(),wadd:()=>QR.stop(),replay:()=>Replay.stop()};
 function show(id){
   if(id===current)return;
   if(leaveHooks[current])leaveHooks[current]();
@@ -17,6 +17,7 @@ function goBack(){
   if(current==='settings'||current==='help'){show(Ride.on?'ride':Watch.on&&Watch.srcList().length&&prevScreen==='watch'?'watch':'home');return}
   if(current==='create'||current==='join'){show('group');return}
   if(current==='wadd'&&Watch.srcList().length){show('watch');return}
+  if(current==='replay'){const b=Replay.back;show(b==='ride'&&Ride.on?'ride':b==='watch'&&Watch.on?'watch':'home');if(b==='home'&&Summary.last)Summary.open(Summary.last);return}
   show('home')}
 let prevScreen='home';
 window.addEventListener('popstate',()=>{
@@ -79,25 +80,26 @@ function bindSettings(){
 function onSetting(k){
   if(k==='layer')allMaps.forEach(setMapStyle);
   if(k==='sim'){applySimUI();GPS.stop();toast(settings.sim?'Mode simulation activé':'Mode simulation désactivé : retour au vrai GPS');if(Ride.on)GPS.start()}
-  if(k==='notif'&&settings.notif)ensureNotifPermission();
+  if(k==='notif'&&settings.notif)Notify.ask().then(st=>{if(st==='denied')toast('Le navigateur bloque les notifications : autorise-les dans les réglages du site.',true)});
   if(k==='speak'&&settings.speak){Voice.unlock();Voice.say('Lecture des messages activée')}
   if(k==='showTrails'||k==='showOthersRoutes')refreshMaps();
   if(Ride.on)Ride.dirtyView(true);
 }
 
 /* ---------------- Bilan d'une sortie ---------------- */
-const Summary={cur:null,
+const Summary={cur:null,last:null,
   open(sm,keep){
     if(!sm)return;const s=sm.stats,el=Math.max(0,(sm.end||Date.now())-sm.start),tr=sm.seg?decTrack(sm.seg):sm.track?decTrack(sm.track):[];
     const box=document.createElement('div');
     box.innerHTML=`<p><b>${esc(sm.name)}</b></p><p class="hint">${new Date(sm.start).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${hhmm(sm.start)} – ${hhmm(sm.end||Date.now())}</p>
       <div class="tiles">${tile('Distance',fmtKm(s.dist),'km','big')}${tile('Temps',fmtTime(el),'','big')}${tile('Allure moyenne',pace(el>0?s.dist/(el/1000):null),'/km')}${tile('En mouvement',pace(s.mov>0?s.dist/(s.mov/1000):null),'/km')}
       ${tile('Dénivelé',s.gain!=null?'+'+Math.round(s.gain)+' / −'+Math.round(s.loss):'—','m')}${tile('km-effort',dec((s.dist||0)/1000+(s.gain||0)/EFF_D,1),'')}</div>
-      <div class="row"><button type="button" id="smSave">⬇ Ma trace GPX</button><button type="button" id="smShare">📤 Partager</button></div>
+      <div class="row"><button type="button" class="primary" id="smReplay">▶ Rejouer</button><button type="button" id="smSave">⬇ Ma trace GPX</button><button type="button" id="smShare">📤 Partager</button></div>
       <section class="card">${segTable(tr,settings.seg)}</section>`;
     const sc=keep&&Sheet.open?$('#sheet').scrollTop:0;
     Sheet.show(sm.mode==='live'?'Bilan de la course':'Bilan de la sortie',box,()=>{this.cur=null});this.cur=sm;if(keep)$('#sheet').scrollTop=sc;
     const gpx=()=>trackToGPX(sm.name+' – '+(sm.me||''),[{name:sm.me||'Ma trace',pts:decTrack(sm.track)}]),fn=slug('followtrail_'+sm.name)+'.gpx';
+    $('#smReplay').onclick=()=>{Summary.last=sm;Replay.open(summaryReplayData(sm))};
     $('#smSave').onclick=()=>{if(!sm.track){toast('Pas de trace enregistrée.',true);return}saveFile(fn,gpx())};
     $('#smShare').onclick=()=>{if(!sm.track){toast('Pas de trace enregistrée.',true);return}shareFile(fn,gpx())};
   }

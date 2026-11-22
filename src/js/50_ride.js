@@ -38,7 +38,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       follow:s.follow||a.follow||null,own:s.own?decRoute(s.own):(a.own||null),
       myMsgs:s.myMsgs||[],msgs:new Map((s.msgs||[]).map(m=>[m.id,m])),lastRead:s.lastRead||0,
       sos:s.sos||null,status:'on',riders:{},routes:{},watchers:{},prog:null,offSince:null,offAlerted:false,armed:false,endReached:!!s.finT,
-      mode,eco:a.eco!=null?!!a.eco:!!s.eco,ph:s.ph||[],pe:null,runStart:s.runStart||null,altOff:s.altOff==null?null:s.altOff,finT:s.finT||null,
+      mode,eco:a.eco!=null?!!a.eco:!!s.eco,ph:s.ph||[],pe:null,runStart:s.runStart||null,altOff:s.altOff==null?null:s.altOff,finT:s.finT||null,passed:s.passed||{},
       lastPub:0,lastChunkPub:0,lastSave:0,dirty:new Set(),fixes:[],prevSpd:null,syncT:Date.now(),
       ready:!!(link.session&&!a.resume)||!!(a.isOrg&&!a.resume),firstConn:true,sel:null});
     if(this.session&&this.session.name)this.sname=this.session.name;
@@ -108,7 +108,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     return{v:1,pid:this.pid,name:this.name,status:this.status,org:this.isOrg?1:0,start:this.start,t0:this.runStart||undefined,
       pos:f?{lat:+f.lat.toFixed(6),lon:+f.lon.toFixed(6),acc:Math.round(f.acc),alt:s.alt!=null?Math.round(s.alt):null,spd:s.spd!=null?+s.spd.toFixed(2):null,hd:h!=null?Math.round(h):null,t:f.t,sim:f.sim?1:undefined}:null,
       s:{dist:Math.round(s.dist),mov:Math.round(s.mov),vmax:+(s.vmax||0).toFixed(1),gain:Math.round(s.gain||0),loss:Math.round(s.loss||0)},
-      pe:this.pe||undefined,fin:this.finT||undefined,
+      pe:this.pe||undefined,fin:this.finT||undefined,wp:Object.keys(this.passed).length?this.passed:undefined,
       f:this.follow&&fr?{k:this.follow.k,id:this.follow.k==='org'?this.follow.id:null,name:fr.name,L:Math.round(fr.L)}:null,
       pr:pr&&fr&&pr.rid===fr.id?{a:Math.round(pr.along),L:Math.round(pr.L),off:Math.round(pr.off),gl:pr.gainLeft!=null?Math.round(pr.gainLeft):null,w:pr.wait?1:undefined}:null,
       sos:this.sos&&now-this.sos<SOS_MS?this.sos:null,bat:Battery.level,app:PLATFORM,upd:now};
@@ -142,7 +142,12 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       const live=Date.now()-this.syncT>8000;
       if(!prev&&live&&o.status==='on')this.sysMsg(`${o.name} a rejoint la sortie`,Math.min(Date.now(),o.start||Date.now()));
       if(prev&&prev.status==='on'&&o.status==='left')this.sysMsg(`${o.name} a quitté la sortie`);
-      if((o.sos||null)!==((prev&&prev.sos)||null)){this.renderHead();this.dirtyView(true)}
+      if((o.sos||null)!==((prev&&prev.sos)||null)){this.renderHead();this.dirtyView(true);
+        if(live&&!Moder.hidden({pid:id},this.blk())){
+          if(o.sos&&Date.now()-o.sos<SOS_MS)Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:this.whereText(id,o.pos),sos:true,key:'sos-'+id,tap:{k:'sos',pid:id}});
+          else if(prev&&prev.sos)Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+id,tap:{k:'map',pid:id}});
+        }}
+      this.checkOff(R,prev,live);
       this.dirtyView();return}
     if(kind==='t'){const k=+parts[2];if(!o)delete R.chunks[k];else R.chunks[k]=decTrack(o);R.ver++;this.dirtyView();return}
     if(kind==='r'){R.route=o?decRoute(o):null;this.routesChanged();return}
@@ -206,7 +211,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   pushPt(p){this.track.push(p);if(this.track.length>40000)this.track.splice(0,5000);this.addShared(p)},
   addShared(p){const sh=this.shared,l=sh[sh.length-1];if(!l||dist(l,p)>=12||p[2]-l[2]>=60000){sh.push(p);this.dirty.add(Math.floor((sh.length-1)/CHUNK))}},
   followRoute(){const fw=this.follow;if(!fw)return null;return fw.k==='own'?this.own:(this.routes[fw.id]||null)},
-  setFollow(fw){this.follow=fw;this.prog=null;this.offSince=null;this.offAlerted=false;this.armed=false;this.endReached=false;this.finT=null;this.ph=[];this.pe=null;
+  setFollow(fw){this.follow=fw;this.prog=null;this.offSince=null;this.offAlerted=false;this.armed=false;this.endReached=false;this.finT=null;this.ph=[];this.pe=null;this.passed={};
     if(GPS.last)this.updateProgress(GPS.last);this.publish(true);this.save();RideMap.routesDirty=true;this.dirtyView(true)},
   updateProgress(f){
     const r=this.followRoute();if(!r){this.prog=null;return}
@@ -217,14 +222,21 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     /* tant qu'on n'est jamais passé sur le tracé (trajet d'approche), pas d'avancement ni d'alerte */
     this.prog={rid:r.id,along:this.armed?loc.along:0,L:r.L,off:loc.off,gainLeft:this.armed?loc.gainLeft:r.gain,ele:loc.ele,wait:!this.armed};
     if(loc.off>lim){if(!this.offSince)this.offSince=Date.now();
-      if(settings.offAlert&&this.armed&&!this.offAlerted&&Date.now()-this.offSince>=8000){this.offAlerted=true;Snd.warn();vib([400,150,400]);toast('⚠ Hors tracé : '+fmtDist(loc.off),true)}}
-    else if(loc.off<lim*0.7){if(this.offAlerted){Snd.ok();toast('✔ De retour sur le tracé')}this.offSince=null;this.offAlerted=false}
+      if(settings.offAlert&&this.armed&&!this.offAlerted&&Date.now()-this.offSince>=8000){this.offAlerted=true;Snd.warn();vib([400,150,400]);toast('⚠ Hors tracé : '+fmtDist(loc.off),true);
+        if(document.visibilityState==='hidden')Notify.show({title:'⚠ Hors tracé',body:'Tu es à '+fmtDist(loc.off)+' du tracé « '+r.name+' ».',sos:true,key:'off-me',tap:{k:'map'}})}}
+    else if(loc.off<lim*0.7){if(this.offAlerted){Snd.ok();toast('✔ De retour sur le tracé');Notify.clear('off-me')}this.offSince=null;this.offAlerted=false}
     /* allure-effort pour l'arrivée estimée : un relevé toutes les 30 s ; tant qu'on n'avance pas sur le tracé (attente au départ), l'origine se décale */
     if(this.armed&&loc.off<=Math.max(lim*2,100)&&!this.endReached){
       const e=effortAt(r,loc.along),h=this.ph,last=h[h.length-1];
       if(!last||f.t-last[0]>=30000){if(h.length===1&&e-h[0][1]<0.03)this.ph=[[f.t,e]];else{h.push([f.t,e]);if(h.length>3000)h.splice(1,1)}}
       this.pe=effortPace(this.ph);
     }
+    if(this.armed&&loc.off<=Math.max(lim*2,100))(r.wpts||[]).forEach((w,i)=>{
+      if(w.a==null||this.passed[i]||loc.along<w.a-15||loc.along>w.a+400)return;
+      this.passed[i]=f.t;const d=w.p>0&&this.runStart?w.p-(f.t-this.runStart)/1000:null;
+      this.sysMsg('📍 '+w.n+(d!=null?' · '+fmtDelta(d):''));this.publish(true);
+      if(settings.speak)Voice.say(w.n+(d!=null&&Math.abs(d)>=60?' : '+fmtDelta(d)+' sur le plan':d!=null?' : dans les temps':''));
+    });
     if(!this.endReached&&r.L>500&&r.L-loc.along<80&&loc.off<60&&this.stats.dist>r.L*0.5){this.endReached=true;this.finT=f.t;Snd.ok();toast('🏁 Fin du tracé « '+r.name+' »');this.publish(true)}
   },
   tick(){
@@ -243,14 +255,37 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   },
   sysMsg(text,t){this.addMsg({id:'sys-'+uid(),t:t||Date.now(),sys:true,text},true)},
   notify(m){
-    const sos=m.k==='sos';
-    if(document.visibilityState==='hidden'&&NATIVE&&settings.notif){
-      try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':m.fw?'📣 ':'💬 ')+m.name,body:Moder.clean(m.text),smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
+    const sos=m.k==='sos',away=document.visibilityState==='hidden'||this.tab!=='chat';
+    /* notification : toujours pour un SOS ; pour un message, si on ne regarde pas la messagerie.
+       Clé par personne : son dernier message remplace le précédent, « tout va bien » remplace son SOS. */
+    if(sos||away)Notify.show({title:sos?'🆘 '+m.name+' a besoin d\'aide':(m.fw?'📣 ':'💬 ')+m.name,
+      body:sos?this.whereText(m.pid,m.pos):Moder.clean(m.text),sos,key:(sos||m.k==='ok'?'sos-':'msg-')+m.pid,tap:{k:sos?'sos':'msg',pid:m.pid}});
     if(sos){Snd.sos();vib([600,200,600,200,900])}else{if(settings.msgSound)Snd.msg();vib([80,60,80])}
     /* lecture à voix haute : on court sans regarder l'écran */
     if(settings.speak)setTimeout(()=>Voice.say(sos?'Alerte : '+m.name+' a besoin d\'aide':(m.fw?'Message de ':'')+m.name+' : '+Moder.speech(m.text)),sos?1800:450);
     if(this.tab!=='chat'||sos)toast((sos?'':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
   },
+  /* organisateur (Group Run) : alerte quand un participant quitte son tracé plus de 30 s (option du menu) */
+  checkOff(R,prev,live){
+    const st=R.st,on=this.isOrg&&this.mode==='group'&&settings.orgOff;
+    if(!on||!st||st.status!=='on'||!st.f||!st.pr||st.pr.w||st.pr.off==null){
+      if(R.offAlerted&&(!on||!st||st.status!=='on')){R.offAlerted=false;Notify.clear('off-'+R.pid)}
+      if(!st||!st.pr||st.pr.w)R.offSince=null;return}
+    const lim=settings.offDist||50,off=st.pr.off,t=st.pos?st.pos.t:Date.now();
+    if(off>lim){
+      if(!R.offSince)R.offSince=t;
+      if(!R.offAlerted&&t-R.offSince>=30000&&live){R.offAlerted=true;
+        Snd.warn();vib([400,150,400]);toast('⚠ '+st.name+' a quitté le tracé ('+fmtDist(off)+')',true);this.sysMsg('⚠ '+st.name+' a quitté le tracé');
+        if(settings.speak)Voice.say('Attention : '+st.name+' a quitté le tracé');
+        Notify.show({title:'⚠ '+st.name+' a quitté le tracé',body:'À '+fmtDist(off)+' du tracé. '+this.whereText(R.pid,st.pos),sos:true,key:'off-'+R.pid,tap:{k:'off',pid:R.pid}})}
+    }else if(off<lim*0.7){
+      if(R.offAlerted){R.offAlerted=false;Snd.ok();toast('✔ '+st.name+' est revenu sur le tracé');this.sysMsg('✔ '+st.name+' est revenu sur le tracé');
+        Notify.show({title:'✔ '+st.name+' est revenu sur le tracé',body:'',key:'off-'+R.pid,tap:{k:'map',pid:R.pid}})}
+      R.offSince=null}
+  },
+  /* « à 1,2 km de toi (nord-est) » pour une alerte */
+  whereText(pid,pos){const R=this.riders[pid],p=pos||(R&&R.st&&R.st.pos);
+    return p&&GPS.last?'À '+fmtDist(dist(GPS.last,p))+' de toi ('+cardS(bearing(GPS.last,p))+'). Touche pour voir sa position.':'Touche pour voir sa position.'},
   unread(){let n=0;const b=this.blk();this.msgs.forEach(m=>{if(!m.sys&&m.pid!==this.pid&&m.rt>this.lastRead&&!Moder.hidden(m,b))n++});return n},
   send(text,q){
     text=String(text||'').trim().slice(0,500);if(!text||!this.on)return false;
@@ -267,13 +302,15 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   save(){
     if(!this.on)return;this.lastSave=Date.now();
     const o={code:this.code,pid:this.pid,name:this.name,isOrg:this.isOrg,session:this.isOrg?this.session:null,sname:this.sname,start:this.start,
-      mode:this.mode,eco:this.eco,ph:this.ph.slice(-1500),runStart:this.runStart,altOff:this.altOff,finT:this.finT,
+      mode:this.mode,eco:this.eco,ph:this.ph.slice(-1500),runStart:this.runStart,altOff:this.altOff,finT:this.finT,passed:this.passed,
       stats:this.stats,altS:this.altS,altRef:this.altRef,follow:this.follow,own:this.own?encRoute(this.own):null,
       myMsgs:this.myMsgs,msgs:[...this.msgs.values()].sort((a,b)=>a.t-b.t).slice(-200),lastRead:this.lastRead,sos:this.sos,
       orgRoutes:this.isOrg?Object.values(this.routes).map(encRoute):null};
     for(const n of[40000,10000,2000,0]){o.track=n?encTrack(this.track.slice(-n)):null;if(store.set(K.active,o))return}
   },
-  summary(){const t=this.track;return{name:this.sname||'Sortie',me:this.name,start:this.runStart||this.start,end:this.finT||(t.length?t[t.length-1][2]:Date.now()),stats:Object.assign({},this.stats),code:this.code,mode:this.mode,track:encTrack(t),seg:encTrack(this.shared)}},
+  summary(){const t=this.track,fr=this.followRoute();return{name:this.sname||'Sortie',me:this.name,start:this.runStart||this.start,end:this.finT||(t.length?t[t.length-1][2]:Date.now()),stats:Object.assign({},this.stats),code:this.code,mode:this.mode,track:encTrack(t),seg:encTrack(this.shared),
+    /* pour rejouer la sortie : traces des autres et tracé suivi */
+    others:this.others().map(R=>({n:R.st.name,c:colorOf(R.pid),t:encTrack(thinTrack(fullTrackOf(R),3000))})).filter(o=>o.t),route:fr?encRoute(fr):null}},
   archive(a){const sm=a.track?{name:a.sname||'Sortie',me:a.name,start:a.runStart||a.start,end:a.finT||decTrack(a.track).slice(-1).map(q=>q[2])[0]||Date.now(),stats:a.stats,mode:a.mode,track:a.track}:null;if(sm)store.set(K.last,sm)},
   /* remise à zéro des compteurs (par ex. sur la ligne de départ, après le trajet) : le partage continue */
   async resetStats(){
@@ -282,7 +319,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!v)return;
     const n=Math.ceil(this.shared.length/CHUNK);for(let k=0;k<n;k++)this.pub('t/'+this.pid+'/'+k,null);
     this.track=[];this.shared=[];this.dirty=new Set();this.stats={dist:0,mov:0,vmax:0,gain:0,loss:0,alt:this.stats.alt,spd:null};this.altRef=this.stats.alt;
-    this.start=Date.now();this.runStart=null;this.ph=[];this.pe=null;this.finT=null;this.endReached=false;this.armed=false;this.prog=null;
+    this.start=Date.now();this.runStart=null;this.ph=[];this.pe=null;this.finT=null;this.endReached=false;this.armed=false;this.prog=null;this.passed={};
     if(GPS.last)this.updateProgress(GPS.last);this.publish(true);this.save();if(RideMap.myPl){RideMap.myPl.setLatLngs([]);RideMap.myPl._n=0}this.dirtyView(true);
     if(this.tab==='stats')Stats.render();toast('Compteurs remis à zéro');
   },
@@ -293,7 +330,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!silent){this.status='left';this.publish(true);this.publishChunks()}
     this.on=false;this.ended=true;clearInterval(this.tickI);clearInterval(this.expI);if(this.unsub)this.unsub();this.unsub=null;
     GPS.stop();Wake.off();
-    const sm=this.summary();if(!store.set(K.last,sm)){sm.track=null;store.set(K.last,sm)}
+    const sm=this.summary();if(!store.set(K.last,sm)){const s2=Object.assign({},sm,{others:null,route:null});if(!store.set(K.last,s2)){s2.track=null;store.set(K.last,s2)}}
     store.del(K.active);
     const m=this.m;this.m=null;if(!this.keepLink)setTimeout(()=>{try{m.close()}catch(e){}},silent?300:3000);
     Sheet.hide();show('home');

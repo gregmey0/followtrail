@@ -88,12 +88,14 @@ function routeLocate(r,pos,hint){
 function encRoute(r){const d=[];let a0=0,b0=0,e0=0;
   for(const q of r.pts){const a=Math.round(q[0]*1e5),b=Math.round(q[1]*1e5),e=q[2]==null?e0:Math.round(q[2]);d.push(a-a0,b-b0,e-e0);a0=a;b0=b;e0=e}
   const o={id:r.id,name:r.name,owner:r.owner,e:r.hasEle?1:0,d};
-  if(r.wpts&&r.wpts.length)o.w=r.wpts.map(w=>[Math.round(w.lat*1e5),Math.round(w.lon*1e5),w.n]);
+  if(r.wpts&&r.wpts.length)o.w=r.wpts.map(w=>w.p>0?[Math.round(w.lat*1e5),Math.round(w.lon*1e5),w.n,Math.round(w.p)]:[Math.round(w.lat*1e5),Math.round(w.lon*1e5),w.n]);
+  if(r.pf>0)o.pf=Math.round(r.pf);   /* plan de course : temps prévu à l'arrivée (s depuis le départ) */
   return o}
 function decRoute(o){if(!o||!o.d)return null;const pts=[];let a=0,b=0,e=0;
   for(let i=0;i+2<o.d.length;i+=3){a+=o.d[i];b+=o.d[i+1];e+=o.d[i+2];pts.push([a/1e5,b/1e5,o.e?e:null])}
-  const wpts=Array.isArray(o.w)?o.w.slice(0,60).map(w=>({lat:w[0]/1e5,lon:w[1]/1e5,n:String(w[2]||'Point').slice(0,40)})):[];
-  return pts.length>1?routeStats({id:o.id,name:o.name,owner:o.owner||null,pts,wpts}):null}
+  const wpts=Array.isArray(o.w)?o.w.slice(0,60).map(w=>{const x={lat:w[0]/1e5,lon:w[1]/1e5,n:String(w[2]||'Point').slice(0,40)};if(+w[3]>0)x.p=+w[3];return x}):[];
+  if(pts.length<2)return null;
+  const r=routeStats({id:o.id,name:o.name,owner:o.owner||null,pts,wpts});if(+o.pf>0)r.pf=+o.pf;return r}
 /* traces enregistrées [lat,lon,t,alt] : différences entières (1e-5 degré, seconde, mètre) */
 function encTrack(tr){if(!tr||!tr.length)return null;const t0=tr[0][2];let a0=0,b0=0,c0=0,e0=0;const d=[];
   for(const q of tr){const a=Math.round(q[0]*1e5),b=Math.round(q[1]*1e5),c=Math.round((q[2]-t0)/1000),e=q[3]==null?e0:Math.round(q[3]);d.push(a-a0,b-b0,c-c0,e-e0);a0=a;b0=b;c0=c;e0=e}return{t0,d}}

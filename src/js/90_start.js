@@ -21,4 +21,4 @@ $('#compassBtn').hidden=!Compass.needsPerm;
   if(l){openLink(l);return}
   if(NATIVE&&P.app){try{const r=await P.app.getLaunchUrl();const lc=r&&linkCode(r.url);if(lc){openLink(lc);return}}catch(e){}}
 })();
-window.FollowTrail={GPS,Ride,RideMap,Stats,Chat,Routes,Join,Create,LiveCreate,Watch,WAdd,SessionLink,Mqtt,deriveKey,seal,unseal,newCode,normCode,validCode,fmtCode,parseRouteGPX,makeRoute,routeLocate,encRoute,decRoute,encTrack,decTrack,segments,effortPace,etaInfo,fullTrackOf,effortAt,recentVAM,Voice,settings:()=>settings,store,K,BROKERS};
+window.FollowTrail={GPS,Ride,RideMap,Stats,Chat,Routes,Join,Create,LiveCreate,Watch,WAdd,Replay,PlanEdit,Notify,Summary,planDelta,SessionLink,Mqtt,deriveKey,seal,unseal,newCode,normCode,validCode,fmtCode,parseRouteGPX,makeRoute,routeLocate,encRoute,decRoute,encTrack,decTrack,segments,effortPace,etaInfo,fullTrackOf,effortAt,recentVAM,Voice,settings:()=>settings,store,K,BROKERS};

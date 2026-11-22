@@ -15,7 +15,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       m.on('dragstart',()=>{this.follow=false})}
     this.on=true;show('watch');this.layout();this.setTab(this.wide&&this.tab==='map'?'run':this.tab);
     clearInterval(this.tickI);this.tickI=setInterval(()=>this.tick(),2000);
-    Voice.unlock();Snd.unlock();this.renderHead();this.saveList();
+    Voice.unlock();Snd.unlock();this.renderHead();this.saveList();if(NATIVE)ensureNotifPermission();
     setTimeout(()=>{this.map.invalidateSize();this.update()},60);
   },
   async add(code,{silent,noOpen}={}){
@@ -82,7 +82,9 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       if(!o||!o.pid)return;if(R.st&&R.st.upd>o.upd)return;
       const prev=R.st;R.st=o;
       if(o.pos&&o.status==='on'){const tr=R.trail,l=tr[tr.length-1];if(!l||l[2]!==o.pos.t){tr.push([o.pos.lat,o.pos.lon,o.pos.t,o.pos.alt]);if(tr.length>4000)tr.splice(0,500)}}
-      if(o.sos&&Date.now()-o.sos<SOS_MS&&(!prev||prev.sos!==o.sos)&&Date.now()-S.syncT>3000){Snd.sos();vib([600,200,600,200,900]);toast('🆘 '+o.name+' a besoin d\'aide',true)}
+      if(o.sos&&Date.now()-o.sos<SOS_MS&&(!prev||prev.sos!==o.sos)&&Date.now()-S.syncT>3000){Snd.sos();vib([600,200,600,200,900]);toast('🆘 '+o.name+' a besoin d\'aide',true);
+        Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:'Touche pour voir sa position.',sos:true,key:'sos-'+S.code+id,tap:{w:S.code,k:'sos',pid:id}})}
+      if(!o.sos&&prev&&prev.sos&&Date.now()-S.syncT>3000){toast('✔ '+o.name+' : tout va bien');Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+S.code+id,tap:{w:S.code,k:'map',pid:id}})}
       if(!prev)this.routesDirty=true;
       if(prev&&prev.f!==o.f&&JSON.stringify(prev.f)!==JSON.stringify(o.f))this.routesDirty=true;
       this.dirty();return}
@@ -96,8 +98,10 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(!mine&&m.t>S.syncT-10000&&Date.now()-S.syncT>3000&&!Moder.hidden(m,this.blk(S))){
       const sos=m.k==='sos';
       if(sos){Snd.sos();vib([600,200,600,200,900])}else if(settings.msgSound&&!m.fw){Snd.msg();vib([80,60,80])}
-      if(!m.fw||sos){if(this.tab!=='chat'||this.chatSrc!==S.code||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
-        if(document.visibilityState==='hidden'&&NATIVE&&settings.notif)try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':'💬 ')+m.name,body:Moder.clean(m.text),smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
+      if(!m.fw||sos){const away=document.visibilityState==='hidden'||this.tab!=='chat'||this.chatSrc!==S.code;
+        if(away||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
+        if(away||sos)Notify.show({title:sos?'🆘 '+m.name+' a besoin d\'aide':'💬 '+m.name,body:sos?'Touche pour voir sa position.':Moder.clean(m.text),sos,
+          key:(sos||m.k==='ok'?'sos-':'msg-')+S.code+m.pid,tap:{w:S.code,k:sos?'sos':'msg',pid:m.pid}})}
     }
     if(this.tab==='chat'&&this.chatSrc===S.code&&document.visibilityState==='visible')S.lastRead=Date.now();
     this.renderChat();this.renderHead();
@@ -200,7 +204,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(!this.map)return;const now=Date.now();
     $('#wChips').innerHTML=this.people().map(({S,R,key})=>{const st=R.st,s=st.s||{},r=this.routeOf(S,R),pr=st.pr;
       const e=r&&pr&&!pr.w&&st.pe&&!st.fin?etaInfo(r,pr.a,st.pe,st.pos?st.pos.t:now):null,age=st.pos?now-st.pos.t:null;
-      return`<button type="button" class="chip wchip${this.sel===key?' on':''}" data-wsel="${esc(key)}" style="--c:${colorOf(R.pid)}"><i></i>${esc(st.name)} · ${fmtKm(s.dist)} km${r&&pr&&!pr.w?' / '+fmtKm(r.L):''}${st.fin?' · 🏁 arrivé':e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${st.status==='left'?' · terminé':age!=null&&age>STALE_MS?' · ⏳ '+fmtAgo(age):''}</button>`}).join('');
+      return`<button type="button" class="chip wchip${this.sel===key?' on':''}" data-wsel="${esc(key)}" style="--c:${colorOf(R.pid)}"><i></i>${esc(st.name)} · ${fmtKm(s.dist)} km${r&&pr&&!pr.w?' / '+fmtKm(r.L):''}${st.fin?' · 🏁 arrivé':e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${r&&pr&&!pr.w&&!st.fin&&hasPlan(r)&&st.t0?' · '+fmtDelta(planDelta(r,pr.a,st.t0,st.pos?st.pos.t:now),true):''}${st.status==='left'?' · terminé':age!=null&&age>STALE_MS?' · ⏳ '+fmtAgo(age):''}</button>`}).join('');
   },
   /* onglet coureurs : liste + fiche détaillée du coureur choisi */
   renderRun(){
@@ -252,8 +256,10 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     const box=document.createElement('div');box.className='menu';
     box.innerHTML=`<button type="button" class="primary" data-wm="add">➕ Suivre un autre coureur</button>
       <button type="button" data-wm="fit">👥 Voir tout le monde sur la carte</button>
+      <button type="button" data-wm="replay">▶ Rejouer ${this.srcList().length>1?'(coureur choisi)':'depuis le départ'}</button>
       <button type="button" data-wm="map">🗂 Fond de carte</button>
       <button type="button" data-wm="name">✏ Mon prénom${this.me().name?' : '+esc(this.me().name):''}</button>
+      ${Notify.state()==='default'?'<button type="button" data-wm="notif">🔔 Activer les notifications (messages, alertes)</button>':''}
       <h2>Suivis</h2><ul class="rlist">${this.srcList().map(S=>`<li><span><b>${esc(this.srcName(S))}</b><small>${this.isLive(S)?'Course':'Sortie Group Run'} · code ${fmtCode(S.code)}</small></span><button type="button" class="mini" data-wm="share" data-code="${S.code}" aria-label="Partager le lien">📤</button><button type="button" class="mini danger" data-wm="rm" data-code="${S.code}" aria-label="Ne plus suivre">🗑</button></li>`).join('')||'<li class="hint">Aucun</li>'}</ul>
       <button type="button" data-wm="help">❓ Aide</button><button type="button" data-wm="home">🏠 Accueil (le suivi continue)</button>`;
     Sheet.show('Suivi',box);
@@ -266,6 +272,8 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
         try{if(NATIVE)await P.share.share({title:'Follow Trail',text});else if(navigator.share)await navigator.share({title:'Follow Trail',text});else{await navigator.clipboard.writeText(text);toast('Lien copié')}}catch(err){}}
       if(k==='rm'){Sheet.hide();this.remove(b.dataset.code,true)}
       if(k==='help'){Sheet.hide();show('help')}
+      if(k==='replay'){const x=this.selected(),code=x?x.S.code:(this.srcList()[0]||{}).code;const d=code&&watchReplayData(code);if(d)Replay.open(d);else toast('Rien à rejouer pour l\'instant.',true)}
+      if(k==='notif'){const st=await Notify.ask();Sheet.hide();toast(st==='granted'?'Notifications activées':'Notifications refusées par le navigateur',st!=='granted')}
       if(k==='home'){Sheet.hide();show('home')}
     };
   }
@@ -275,7 +283,7 @@ $('#wMenu').onclick=()=>Watch.menu();
 $('#wAll').onclick=()=>Watch.fitAll();
 $('#wTrail').onclick=()=>{settings.showTrails=!settings.showTrails;saveSettings();$('#wTrail').classList.toggle('on',settings.showTrails);toast(settings.showTrails?'Positions + traces':'Positions seules');Watch.update()};
 $('#wLayers').onclick=()=>MapOpts.open(true);
-$('#wNameOk').onclick=()=>{const n=$('#wNameIn').value.trim();if(!n){$('#wNameIn').focus();return}Watch.setName(n);toast('Merci '+n+' !')};
+$('#wNameOk').onclick=()=>{const n=$('#wNameIn').value.trim();if(!n){$('#wNameIn').focus();return}Watch.setName(n);toast('Merci '+n+' !');Notify.ask()};
 $('#wNameIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('#wNameOk').click()});
 $('#watch').addEventListener('click',e=>{
   const s=e.target.closest('[data-wsel]');if(s){const[c,p]=s.dataset.wsel.split('|');Watch.select(c,p);if(!Watch.wide&&e.target.closest('#wSos'))Watch.setTab('map');return}

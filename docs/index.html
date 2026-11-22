@@ -913,6 +913,34 @@ table.seg tfoot th{text-align:left}
 #watch.wide #wpRun,#watch.wide #wpChat{left:auto;width:min(480px,46vw);border-left:3px solid var(--acc)}
 #watch.wide #wTabs{grid-template-columns:repeat(3,1fr)}
 #watch.wide #wTabs [data-wtab=map]{display:none}
+
+/* plan de course */
+.plandelta{border-radius:12px;padding:.45rem .7rem;border:2px solid var(--line);background:#000;margin:.2rem 0}
+.plandelta.ahead{border-color:var(--ok)}.plandelta.ahead b{color:var(--ok)}
+.plandelta.late{border-color:var(--warn)}.plandelta.late b{color:var(--warn)}
+.wps li.done{opacity:.85;border-style:dashed}
+.wps .wt small{display:block;font-size:.72rem;color:var(--muted);font-weight:400;text-align:right}
+.planbox .pltot{display:flex;gap:.5rem;align-items:flex-end}
+.planbox .pltot label{flex:1}
+.planbox .pltot button{min-height:48px}
+table.plantab td input{width:5.2rem;min-height:40px;font-size:1rem;text-align:center;padding:.2rem}
+table.plantab tr.fin th,table.plantab tr.fin td{border-top:2px solid var(--acc)}
+
+/* rejouer */
+#replay{height:calc(100vh - var(--sat) - var(--sab) - var(--banner,0px));height:calc(100dvh - var(--sat) - var(--sab) - var(--banner,0px));min-height:0;overflow:hidden}
+#replay header.bar .back{min-height:40px;min-width:40px;font-size:1.15rem}
+.rpwrap{position:relative;flex:1;min-height:0}
+#rpMap{position:absolute;inset:0;z-index:0;isolation:isolate}
+.rpctl{background:#000;border-top:3px solid var(--acc);padding:.5rem .7rem .6rem;display:flex;flex-direction:column;gap:.35rem}
+.rptime{display:flex;align-items:baseline;gap:.6rem;font-variant-numeric:tabular-nums}
+.rptime b{font-size:1.5rem;color:var(--acc)}
+.rptime span{color:#ddd}.rptime .rpdur{color:var(--muted)}
+#rpSlider{width:100%;accent-color:var(--acc);min-height:36px}
+.rpbtns{display:flex;gap:.45rem;align-items:center}
+.rpbtns>button{min-height:48px;padding:0 .9rem}
+.rpbtns #rpPlay{flex:1}
+.rpspeed{display:flex;flex-direction:column;font-size:.75rem;color:var(--muted)}
+.rpspeed select{min-height:40px;font-size:1rem}
 </style>
 </head>
 <body>
@@ -959,6 +987,7 @@ table.seg tfoot th{text-align:left}
       <p class="hint">Avec le GPX, ceux qui te suivent voient ton avancement, le dénivelé restant, ton <b>arrivée estimée</b> et tes heures de passage aux points du GPX (ravitaillements…). Tu pourras aussi l'ajouter pendant la course.</p>
       <ul id="lRoute" class="rlist"></ul>
       <button type="button" id="lAddGpx">📂 Choisir le GPX</button>
+      <button type="button" id="lPlan" hidden>⏱ Ajouter un plan de course (facultatif)</button>
     </section>
     <section class="card">
       <label class="chk"><input type="checkbox" id="lEco"> Mode économie (ultra) : position envoyée toutes les 30 s au lieu de 5 s</label>
@@ -1009,6 +1038,18 @@ table.seg tfoot th{text-align:left}
     <button type="button" data-wtab="chat" aria-pressed="false">📣<small>Encourager</small><span id="wBadge" class="badge" hidden></span></button>
     <button type="button" id="wMenu">☰<small>Menu</small></button>
   </nav>
+</section>
+
+<!-- REJOUER -->
+<section id="replay" class="screen">
+  <header class="bar ridebar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 id="rpTitle">Rejouer</h1></header>
+  <div class="rpwrap"><div id="rpMap"></div><div id="rpChips" class="chips wchips" aria-live="off"></div></div>
+  <div class="rpctl">
+    <div class="rptime"><b id="rpClock">--:--</b><span id="rpEl"></span><span class="rpdur">/ <span id="rpDur"></span></span></div>
+    <input type="range" id="rpSlider" min="0" max="1" value="0" step="1" aria-label="Moment de la sortie">
+    <div class="rpbtns"><button type="button" id="rpBack15" aria-label="Reculer">⏪</button><button type="button" class="primary" id="rpPlay">▶ Lecture</button><button type="button" id="rpFwd15" aria-label="Avancer">⏩</button>
+      <label class="rpspeed">Vitesse<select id="rpSpeed"></select></label></div>
+  </div>
 </section>
 
 <!-- CRÉER -->
@@ -1105,7 +1146,7 @@ table.seg tfoot th{text-align:left}
       <label class="chk"><input type="checkbox" data-s="speak"> Lire les messages reçus à voix haute (encouragements, groupe)</label>
       <label class="chk"><input type="checkbox" data-s="msgSound"> Son à l'arrivée d'un message</label>
       <label class="chk"><input type="checkbox" data-s="vibrate"> Vibrations</label>
-      <label class="chk native-only"><input type="checkbox" data-s="notif"> Notification des messages téléphone verrouillé</label>
+      <label class="chk"><input type="checkbox" data-s="notif"> Notifications des messages et des alertes (SOS, sortie de tracé)</label>
     </section>
     <section class="card">
       <h2>Essai</h2>
@@ -1128,9 +1169,10 @@ table.seg tfoot th{text-align:left}
     <ol>
       <li>Indique le nom de la course et ton prénom, choisis si possible le <b>GPX du parcours</b>, puis <b>Démarrer le partage</b>.</li>
       <li>Envoie le <b>lien</b> (SMS, WhatsApp…). Ceux qui le reçoivent l'ouvrent dans un simple navigateur, sans rien installer.</li>
+      <li>Facultatif : <b>⏱ Plan de course</b>, après le GPX. Donne ton objectif d'arrivée, « Répartir » calcule les temps aux ravitos (au prorata des km-effort), puis corrige ce que tu veux. Ceux qui te suivent voient l'heure prévue à chaque point et ton avance ou ton retard ; une voix te l'annonce à chaque point.</li>
       <li>Sur la ligne de départ : ☰ Menu › <b>Remettre les compteurs à zéro</b> si tu as partagé pendant le trajet.</li>
       <li>Les <b>encouragements</b> arrivent en notification et sont <b>lus à voix haute</b>. Réponds d'un appui avec les messages rapides (« 🙏 Merci ! », « 🥤 Au ravito »…).</li>
-      <li>À l'arrivée : ☰ Menu › <b>Terminer le partage</b>. Ceux qui te suivent voient ton bilan.</li>
+      <li>À l'arrivée : ☰ Menu › <b>Terminer le partage</b>. Ceux qui te suivent voient ton bilan, et <b>▶ Rejouer</b> repasse la course en accéléré.</li>
     </ol>
     <h2>👀 Suivre un coureur</h2>
     <ul>
@@ -1148,11 +1190,13 @@ table.seg tfoot th{text-align:left}
     <ul>
       <li>L'organisateur crée la sortie et invite par QR code, lien ou code. Chacun voit tout le groupe sur la carte, les stats et tronçons de chacun, et la messagerie.</li>
       <li>L'organisateur peut proposer des tracés GPX, chacun peut aussi importer le sien. « 🆘 Besoin d'aide » alerte tout le monde.</li>
+      <li>Organisateur : ☰ Menu › <b>M'alerter si quelqu'un quitte le tracé</b> (au-delà de l'écart réglé, pendant plus de 30 s).</li>
+      <li>☰ Menu › <b>Rejouer</b> : toute la sortie en accéléré, tout le monde sur la carte. Aussi depuis le bilan, à la fin.</li>
     </ul>
     <h2>Téléphone verrouillé</h2>
     <ul>
       <li><b>Appli (Android, iPhone)</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute. Sur iPhone, autoriser la position « Toujours ».</li>
-      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte.</li>
+      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte ; messages et alertes SOS s'affichent en notification si tu les autorises, tant que la page reste ouverte en arrière-plan.</li>
       <li>En zone blanche, tout repart dès le retour du réseau : la trace complète est renvoyée.</li>
       <li>Course longue : le <b>mode économie</b> envoie la position toutes les 30 s.</li>
     </ul>
@@ -3486,7 +3530,7 @@ var qrcode = function() {
 </script>
 <script>'use strict';
 (function(){
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 const CAP=window.capacitorExports||null;
 const NATIVE=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
 const P=NATIVE&&CAP?{geo:CAP.registerPlugin('BackgroundGeolocation'),fs:CAP.registerPlugin('Filesystem'),share:CAP.registerPlugin('Share'),awake:CAP.registerPlugin('KeepAwake'),tts:CAP.registerPlugin('TextToSpeech'),device:CAP.registerPlugin('Device'),notif:CAP.registerPlugin('LocalNotifications'),app:CAP.registerPlugin('App')}:{};
@@ -3509,7 +3553,7 @@ const store={
   del(k){try{localStorage.removeItem(k)}catch(e){}}
 };
 const K={settings:'flt.settings.v1',active:'flt.active.v1',last:'flt.last.v1',me:'flt.me.v1',watch:'flt.watch.v1',watcher:'flt.watcher.v1'};
-const DEFAULTS={layer:'ign',showTrails:true,showOthersRoutes:true,offAlert:true,offDist:50,vibrate:true,notif:true,msgSound:true,speak:true,seg:1000,eco:false,sim:false};
+const DEFAULTS={layer:'ign',showTrails:true,showOthersRoutes:true,offAlert:true,offDist:50,vibrate:true,notif:true,msgSound:true,speak:true,seg:1000,eco:false,orgOff:false,sim:false};
 let settings=Object.assign({},DEFAULTS,store.get(K.settings,{}));
 const saveSettings=()=>store.set(K.settings,settings);
 
@@ -3711,6 +3755,60 @@ function currentHeading(){
   return Walk.get(600000);
 }
 
+/* ---------------- Notifications système : messages, SOS, sorties de tracé ----------------
+   Appli (Android, iPhone) : notifications locales ; sur Android, deux canaux : « Alertes SOS »
+   (priorité maximale) et « Messages ». Toucher la notification ouvre l'appli au bon endroit.
+   Navigateur : notifications du navigateur quand la page est en arrière-plan, si elles sont autorisées
+   (sans serveur, elles n'arrivent que tant que le navigateur garde la page ouverte).
+   Une même clé (« sos-<personne> ») remplace la notification précédente : l'alerte devient « tout va bien ». */
+const Notify={
+  async init(){
+    if(NATIVE&&P.notif){
+      try{await P.notif.createChannel({id:'sos',name:'Alertes SOS',description:'Demandes d\'aide et sorties de tracé',importance:5,visibility:1,vibration:true,lights:true,lightColor:'#FF2B2B'})}catch(e){}
+      try{await P.notif.createChannel({id:'msg',name:'Messages',description:'Messages et encouragements',importance:4,visibility:1,vibration:true})}catch(e){}
+      try{P.notif.addListener('localNotificationActionPerformed',a=>this.onTap(a&&a.notification&&a.notification.extra))}catch(e){}
+    }else if('serviceWorker' in navigator){
+      try{navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.flt==='tap')this.onTap(e.data.tap)})}catch(e){}
+    }
+  },
+  idFor(key){let h=7;for(const c of String(key))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)%2000000000+1},
+  /* o : {title, body, sos, key, tap: {k, w (suivi : code), pid}} */
+  recent:{},
+  show(o){
+    if(!settings.notif)return;
+    /* la même alerte arrive par deux chemins (message et état) : une seule sonnerie */
+    if(o.key){const k=o.key+'|'+o.title,t=Date.now();if(t-(this.recent[k]||0)<8000)return;this.recent[k]=t}
+    if(NATIVE&&P.notif){
+      try{P.notif.schedule({notifications:[{id:this.idFor(o.key||uid()),title:o.title,body:o.body||'',channelId:o.sos?'sos':'msg',
+        smallIcon:'ic_stat_followtrail',iconColor:o.sos?'#FF2B2B':'#FF8A1F',extra:o.tap||null,autoCancel:true}]}).catch(()=>{})}catch(e){}
+      return;
+    }
+    if(!('Notification' in window)||Notification.permission!=='granted'||document.visibilityState==='visible')return;
+    const opts={body:o.body||'',tag:o.key||undefined,renotify:!!o.key,icon:'icon-192.png',badge:'icon-192.png',requireInteraction:!!o.sos,data:o.tap||null,vibrate:o.sos?[600,200,600,200,900]:[80,60,80]};
+    const direct=()=>{try{const n=new Notification(o.title,opts);n.onclick=()=>{try{window.focus()}catch(e){}this.onTap(o.tap);n.close()}}catch(e){}};
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification(o.title,opts)).catch(direct);else direct();
+  },
+  clear(key){
+    if(NATIVE&&P.notif){try{P.notif.cancel({notifications:[{id:this.idFor(key)}]}).catch(()=>{})}catch(e){}return}
+    if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications({tag:key})).then(ns=>(ns||[]).forEach(n=>n.close())).catch(()=>{});
+  },
+  /* toucher la notification : ouvrir l'endroit concerné */
+  onTap(x){
+    if(!x)return;
+    if(x.w&&typeof Watch!=='undefined'&&Watch.src[x.w]){Watch.open();if(x.pid)Watch.select(x.w,x.pid);Watch.setTab(x.k==='msg'?'chat':Watch.wide?'run':'map');return}
+    if(Ride.on){show('ride');if(x.k==='msg')Ride.setTab('chat');else{Ride.setTab('map');if(x.pid&&Ride.riders[x.pid])setTimeout(()=>RideMap.focus(x.pid),150)}}
+  },
+  /* navigateur : demande d'autorisation, à faire sur un geste de l'utilisateur */
+  async ask(){
+    if(NATIVE){ensureNotifPermission();return 'granted'}
+    if(!('Notification' in window))return 'unsupported';
+    if(Notification.permission!=='default')return Notification.permission;
+    try{return await Notification.requestPermission()}catch(e){return 'denied'}
+  },
+  state(){return NATIVE?'native':!('Notification' in window)?'unsupported':Notification.permission}
+};
+Notify.init();
+
 /* ---------------- Carte ---------------- */
 const IGN=l=>`https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${l}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
 const LAYERS={
@@ -3839,12 +3937,14 @@ function routeLocate(r,pos,hint){
 function encRoute(r){const d=[];let a0=0,b0=0,e0=0;
   for(const q of r.pts){const a=Math.round(q[0]*1e5),b=Math.round(q[1]*1e5),e=q[2]==null?e0:Math.round(q[2]);d.push(a-a0,b-b0,e-e0);a0=a;b0=b;e0=e}
   const o={id:r.id,name:r.name,owner:r.owner,e:r.hasEle?1:0,d};
-  if(r.wpts&&r.wpts.length)o.w=r.wpts.map(w=>[Math.round(w.lat*1e5),Math.round(w.lon*1e5),w.n]);
+  if(r.wpts&&r.wpts.length)o.w=r.wpts.map(w=>w.p>0?[Math.round(w.lat*1e5),Math.round(w.lon*1e5),w.n,Math.round(w.p)]:[Math.round(w.lat*1e5),Math.round(w.lon*1e5),w.n]);
+  if(r.pf>0)o.pf=Math.round(r.pf);   /* plan de course : temps prévu à l'arrivée (s depuis le départ) */
   return o}
 function decRoute(o){if(!o||!o.d)return null;const pts=[];let a=0,b=0,e=0;
   for(let i=0;i+2<o.d.length;i+=3){a+=o.d[i];b+=o.d[i+1];e+=o.d[i+2];pts.push([a/1e5,b/1e5,o.e?e:null])}
-  const wpts=Array.isArray(o.w)?o.w.slice(0,60).map(w=>({lat:w[0]/1e5,lon:w[1]/1e5,n:String(w[2]||'Point').slice(0,40)})):[];
-  return pts.length>1?routeStats({id:o.id,name:o.name,owner:o.owner||null,pts,wpts}):null}
+  const wpts=Array.isArray(o.w)?o.w.slice(0,60).map(w=>{const x={lat:w[0]/1e5,lon:w[1]/1e5,n:String(w[2]||'Point').slice(0,40)};if(+w[3]>0)x.p=+w[3];return x}):[];
+  if(pts.length<2)return null;
+  const r=routeStats({id:o.id,name:o.name,owner:o.owner||null,pts,wpts});if(+o.pf>0)r.pf=+o.pf;return r}
 /* traces enregistrées [lat,lon,t,alt] : différences entières (1e-5 degré, seconde, mètre) */
 function encTrack(tr){if(!tr||!tr.length)return null;const t0=tr[0][2];let a0=0,b0=0,c0=0,e0=0;const d=[];
   for(const q of tr){const a=Math.round(q[0]*1e5),b=Math.round(q[1]*1e5),c=Math.round((q[2]-t0)/1000),e=q[3]==null?e0:Math.round(q[3]);d.push(a-a0,b-b0,c-c0,e-e0);a0=a;b0=b;c0=c;e0=e}return{t0,d}}
@@ -3893,7 +3993,7 @@ function pickGPX(multiple){
 
 /* ---------------- Navigation ---------------- */
 let current='home';
-const leaveHooks={join:()=>Join.leave(),wadd:()=>QR.stop()};
+const leaveHooks={join:()=>Join.leave(),wadd:()=>QR.stop(),replay:()=>Replay.stop()};
 function show(id){
   if(id===current)return;
   if(leaveHooks[current])leaveHooks[current]();
@@ -3910,6 +4010,7 @@ function goBack(){
   if(current==='settings'||current==='help'){show(Ride.on?'ride':Watch.on&&Watch.srcList().length&&prevScreen==='watch'?'watch':'home');return}
   if(current==='create'||current==='join'){show('group');return}
   if(current==='wadd'&&Watch.srcList().length){show('watch');return}
+  if(current==='replay'){const b=Replay.back;show(b==='ride'&&Ride.on?'ride':b==='watch'&&Watch.on?'watch':'home');if(b==='home'&&Summary.last)Summary.open(Summary.last);return}
   show('home')}
 let prevScreen='home';
 window.addEventListener('popstate',()=>{
@@ -3972,25 +4073,26 @@ function bindSettings(){
 function onSetting(k){
   if(k==='layer')allMaps.forEach(setMapStyle);
   if(k==='sim'){applySimUI();GPS.stop();toast(settings.sim?'Mode simulation activé':'Mode simulation désactivé : retour au vrai GPS');if(Ride.on)GPS.start()}
-  if(k==='notif'&&settings.notif)ensureNotifPermission();
+  if(k==='notif'&&settings.notif)Notify.ask().then(st=>{if(st==='denied')toast('Le navigateur bloque les notifications : autorise-les dans les réglages du site.',true)});
   if(k==='speak'&&settings.speak){Voice.unlock();Voice.say('Lecture des messages activée')}
   if(k==='showTrails'||k==='showOthersRoutes')refreshMaps();
   if(Ride.on)Ride.dirtyView(true);
 }
 
 /* ---------------- Bilan d'une sortie ---------------- */
-const Summary={cur:null,
+const Summary={cur:null,last:null,
   open(sm,keep){
     if(!sm)return;const s=sm.stats,el=Math.max(0,(sm.end||Date.now())-sm.start),tr=sm.seg?decTrack(sm.seg):sm.track?decTrack(sm.track):[];
     const box=document.createElement('div');
     box.innerHTML=`<p><b>${esc(sm.name)}</b></p><p class="hint">${new Date(sm.start).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${hhmm(sm.start)} – ${hhmm(sm.end||Date.now())}</p>
       <div class="tiles">${tile('Distance',fmtKm(s.dist),'km','big')}${tile('Temps',fmtTime(el),'','big')}${tile('Allure moyenne',pace(el>0?s.dist/(el/1000):null),'/km')}${tile('En mouvement',pace(s.mov>0?s.dist/(s.mov/1000):null),'/km')}
       ${tile('Dénivelé',s.gain!=null?'+'+Math.round(s.gain)+' / −'+Math.round(s.loss):'—','m')}${tile('km-effort',dec((s.dist||0)/1000+(s.gain||0)/EFF_D,1),'')}</div>
-      <div class="row"><button type="button" id="smSave">⬇ Ma trace GPX</button><button type="button" id="smShare">📤 Partager</button></div>
+      <div class="row"><button type="button" class="primary" id="smReplay">▶ Rejouer</button><button type="button" id="smSave">⬇ Ma trace GPX</button><button type="button" id="smShare">📤 Partager</button></div>
       <section class="card">${segTable(tr,settings.seg)}</section>`;
     const sc=keep&&Sheet.open?$('#sheet').scrollTop:0;
     Sheet.show(sm.mode==='live'?'Bilan de la course':'Bilan de la sortie',box,()=>{this.cur=null});this.cur=sm;if(keep)$('#sheet').scrollTop=sc;
     const gpx=()=>trackToGPX(sm.name+' – '+(sm.me||''),[{name:sm.me||'Ma trace',pts:decTrack(sm.track)}]),fn=slug('followtrail_'+sm.name)+'.gpx';
+    $('#smReplay').onclick=()=>{Summary.last=sm;Replay.open(summaryReplayData(sm))};
     $('#smSave').onclick=()=>{if(!sm.track){toast('Pas de trace enregistrée.',true);return}saveFile(fn,gpx())};
     $('#smShare').onclick=()=>{if(!sm.track){toast('Pas de trace enregistrée.',true);return}shareFile(fn,gpx())};
   }
@@ -4218,7 +4320,7 @@ function profileSVG(r,dots){
     <text x="${W-4}" y="${H-5}" text-anchor="end" class="pt">${fmtKm(r.L)} km</text><text x="4" y="${H-5}" class="pt">0</text>${dots2}</svg>`;
 }
 /* bloc « tracé suivi » : avancement, arrivée estimée, points de passage, profil.
-   o = {r, a (distance le long du tracé), off, wait, pe (s par km-effort), tRef, dots, fin (course terminée)} */
+   o = {r, a (distance le long du tracé), off, wait, pe (s par km-effort), tRef, dots, fin (course terminée), t0 (départ), passed ({n° du point : heure})} */
 function routeBlock(o){
   const r=o.r;if(!r)return'';
   const ok=o.a!=null&&!o.wait,pct=ok&&r.L?Math.min(100,Math.round(o.a/r.L*100)):0,offLim=settings.offDist||50;
@@ -4226,16 +4328,47 @@ function routeBlock(o){
     <p><b>${ok?fmtKm(o.a):'—'} / ${fmtKm(r.L)} km</b>${r.gain!=null?` · D+ ${r.gain} m`:''}${ok?` · ${pct} %`:o.wait?` · pas encore sur le tracé${o.off!=null?' (à '+fmtDist(o.off)+')':''}`:' · en attente du GPS'}</p>
     ${ok&&o.off>offLim?`<p class="warnbox">⚠ Hors tracé : ${fmtDist(o.off)}</p>`:''}
     <div class="pbar"><i style="width:${pct}%"></i></div>`;
-  if(o.fin)h+=`<p class="finbox">🏁 Arrivée à ${fmtClock(o.fin)}${o.t0?' · '+fmtTime(o.fin-o.t0):''}</p>`;
+  const plan=hasPlan(r),passed=o.passed||{},clk=sec=>o.t0?fmtClock(o.t0+sec*1000):fmtHM(sec);
+  if(o.fin)h+=`<p class="finbox">🏁 Arrivée à ${fmtClock(o.fin)}${o.t0?' · '+fmtTime(o.fin-o.t0):''}${plan&&r.pf&&o.t0?' · '+fmtDelta(r.pf-(o.fin-o.t0)/1000):''}</p>`;
+  if(plan&&ok&&!o.fin&&o.t0){const d=planDelta(r,o.a,o.t0,o.tRef);if(d!=null)h+=`<p class="plandelta ${d>=60?'ahead':d<=-60?'late':''}">⏱ Plan de course : <b>${fmtDelta(d)}</b></p>`}
+  else if(plan&&!o.t0&&r.pf)h+=`<p class="hint">⏱ Plan de course : arrivée prévue en ${fmtHM(r.pf)}</p>`;
   if(ok&&!o.fin){
     const e=etaInfo(r,o.a,o.pe,o.tRef);
     h+=`<div class="eta"><div><span>Reste</span><b>${fmtKm(e.dLeft)} km</b><small>${e.gLeft!=null?'D+ '+Math.round(e.gLeft)+' m · ':''}${dec(e.effLeft,1)} km-effort</small></div>
-      <div class="fin"><span>🏁 Arrivée estimée</span>${e.fin?`<b>${fmtClock(e.fin)}</b><small>dans ${fmtDur(Math.max(0,e.fin-Date.now()))}</small>`:'<b>…</b><small>calculée après 2 km-effort sur le tracé</small>'}</div></div>`;
-    if(e.wps.length)h+=`<ul class="wps">${e.wps.slice(0,6).map(w=>`<li><span><b>${esc(w.n)}</b><small>km ${fmtKm(w.a)} · dans ${fmtDist(w.d)}</small></span><span class="wt">${w.t?fmtClock(w.t):'…'}</span></li>`).join('')}</ul>`;
+      <div class="fin"><span>🏁 Arrivée estimée</span>${e.fin?`<b>${fmtClock(e.fin)}</b><small>dans ${fmtDur(Math.max(0,e.fin-Date.now()))}${plan&&r.pf?' · prévue '+clk(r.pf):''}</small>`:`<b>…</b><small>calculée après 2 km-effort sur le tracé${plan&&r.pf?' · prévue '+clk(r.pf):''}</small>`}</div></div>`;
+    if(plan){
+      /* avec un plan : tous les points, passés (heure réelle) et à venir (estimée et prévue) */
+      const up=new Map(e.wps.map(w=>[w.a,w]));
+      const rows=(r.wpts||[]).map((w,i)=>{if(w.a==null)return'';const pt=passed[i],u=up.get(w.a),pl=w.p>0?w.p:null;
+        if(pt)return`<li class="done"><span><b>✓ ${esc(w.n)}</b><small>km ${fmtKm(w.a)}${pl?' · prévu '+clk(pl):''}</small></span><span class="wt">${hhmm(pt)}${pl&&o.t0?`<small>${fmtDelta(pl-(pt-o.t0)/1000)}</small>`:''}</span></li>`;
+        if(!u)return'';
+        return`<li><span><b>${esc(w.n)}</b><small>km ${fmtKm(w.a)} · dans ${fmtDist(u.d)}${pl?' · prévu '+clk(pl):''}</small></span><span class="wt">${u.t?fmtClock(u.t):'…'}${pl&&o.t0&&u.t?`<small>${fmtDelta(pl-(u.t-o.t0)/1000)}</small>`:''}</span></li>`}).join('');
+      if(rows)h+=`<ul class="wps">${rows}</ul>`;
+    }else if(e.wps.length)h+=`<ul class="wps">${e.wps.slice(0,6).map(w=>`<li><span><b>${esc(w.n)}</b><small>km ${fmtKm(w.a)} · dans ${fmtDist(w.d)}</small></span><span class="wt">${w.t?fmtClock(w.t):'…'}</span></li>`).join('')}</ul>`;
     if(o.pe)h+=`<p class="hint">Estimation à ${fmtPaceS(o.pe)} par km-effort (allure récente et depuis le départ, pauses comprises).</p>`;
   }
   return h+profileSVG(r,o.dots)+'</section>';
 }
+
+/* ---------- plan de course ----------
+   Temps prévus depuis le départ (secondes) aux points du GPX (w.p) et à l'arrivée (r.pf).
+   Entre deux points du plan, le temps prévu est réparti au prorata des km-effort. */
+function planPoints(r){if(!r)return[];const p=[[0,0]];(r.wpts||[]).forEach(w=>{if(w.a!=null&&w.p>0)p.push([w.a,w.p])});if(r.pf>0)p.push([r.L,r.pf]);p.sort((x,y)=>x[0]-y[0]);return p.length>1?p:[]}
+const hasPlan=r=>planPoints(r).length>1;
+function planAt(r,a){const p=planPoints(r);if(p.length<2||a==null)return null;
+  for(let i=1;i<p.length;i++)if(a<=p[i][0]+1){const e0=effortAt(r,p[i-1][0]),e1=effortAt(r,p[i][0]),e=effortAt(r,Math.max(p[i-1][0],a));return p[i-1][1]+(e1>e0?Math.min(1,(e-e0)/(e1-e0)):0)*(p[i][1]-p[i-1][1])}
+  return null}
+/* répartir un temps total sur les points, au prorata des km-effort (allure régulière) */
+function planSpread(r,total){const E=effortAt(r,r.L)||1;(r.wpts||[]).forEach(w=>{if(w.a!=null)w.p=Math.round(total*effortAt(r,w.a)/E)});r.pf=Math.round(total)}
+/* « 3:45 », « 3h45 », « 3.45 », « 26:10 » ; un nombre seul = des minutes */
+function parseHM(s){s=String(s||'').trim().toLowerCase().replace(/\s/g,'');if(!s)return null;
+  let m=/^(\d{1,3})[h:.,](\d{1,2})?(?:[:.,](\d{1,2}))?$/.exec(s);if(m)return(+m[1])*3600+(+(m[2]||0))*60+(+(m[3]||0));
+  m=/^(\d{1,4})$/.exec(s);return m?(+m[1])*60:NaN}
+const fmtHM=sec=>{sec=Math.round(sec/60);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')};
+/* écart au plan (s) : positif = en avance */
+function planDelta(r,a,t0,tRef){const p=planAt(r,a);return p==null||!t0?null:p-(tRef-t0)/1000}
+function fmtDelta(d,short){if(d==null)return'';const m=Math.round(Math.abs(d)/60);
+  if(m<1)return short?'⏱ =':'dans les temps';return short?(d>0?'⏱ +':'⏱ −')+m+' min':m+' min '+(d>0?'d\'avance':'de retard')}
 
 /* ---------------- Sortie en cours (Group Run) ou course partagée (mode « live ») ----------------
    Canaux sur le relais (tous chiffrés, sous flt/v1/<canal de la sortie>) :
@@ -4277,7 +4410,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       follow:s.follow||a.follow||null,own:s.own?decRoute(s.own):(a.own||null),
       myMsgs:s.myMsgs||[],msgs:new Map((s.msgs||[]).map(m=>[m.id,m])),lastRead:s.lastRead||0,
       sos:s.sos||null,status:'on',riders:{},routes:{},watchers:{},prog:null,offSince:null,offAlerted:false,armed:false,endReached:!!s.finT,
-      mode,eco:a.eco!=null?!!a.eco:!!s.eco,ph:s.ph||[],pe:null,runStart:s.runStart||null,altOff:s.altOff==null?null:s.altOff,finT:s.finT||null,
+      mode,eco:a.eco!=null?!!a.eco:!!s.eco,ph:s.ph||[],pe:null,runStart:s.runStart||null,altOff:s.altOff==null?null:s.altOff,finT:s.finT||null,passed:s.passed||{},
       lastPub:0,lastChunkPub:0,lastSave:0,dirty:new Set(),fixes:[],prevSpd:null,syncT:Date.now(),
       ready:!!(link.session&&!a.resume)||!!(a.isOrg&&!a.resume),firstConn:true,sel:null});
     if(this.session&&this.session.name)this.sname=this.session.name;
@@ -4347,7 +4480,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     return{v:1,pid:this.pid,name:this.name,status:this.status,org:this.isOrg?1:0,start:this.start,t0:this.runStart||undefined,
       pos:f?{lat:+f.lat.toFixed(6),lon:+f.lon.toFixed(6),acc:Math.round(f.acc),alt:s.alt!=null?Math.round(s.alt):null,spd:s.spd!=null?+s.spd.toFixed(2):null,hd:h!=null?Math.round(h):null,t:f.t,sim:f.sim?1:undefined}:null,
       s:{dist:Math.round(s.dist),mov:Math.round(s.mov),vmax:+(s.vmax||0).toFixed(1),gain:Math.round(s.gain||0),loss:Math.round(s.loss||0)},
-      pe:this.pe||undefined,fin:this.finT||undefined,
+      pe:this.pe||undefined,fin:this.finT||undefined,wp:Object.keys(this.passed).length?this.passed:undefined,
       f:this.follow&&fr?{k:this.follow.k,id:this.follow.k==='org'?this.follow.id:null,name:fr.name,L:Math.round(fr.L)}:null,
       pr:pr&&fr&&pr.rid===fr.id?{a:Math.round(pr.along),L:Math.round(pr.L),off:Math.round(pr.off),gl:pr.gainLeft!=null?Math.round(pr.gainLeft):null,w:pr.wait?1:undefined}:null,
       sos:this.sos&&now-this.sos<SOS_MS?this.sos:null,bat:Battery.level,app:PLATFORM,upd:now};
@@ -4381,7 +4514,12 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       const live=Date.now()-this.syncT>8000;
       if(!prev&&live&&o.status==='on')this.sysMsg(`${o.name} a rejoint la sortie`,Math.min(Date.now(),o.start||Date.now()));
       if(prev&&prev.status==='on'&&o.status==='left')this.sysMsg(`${o.name} a quitté la sortie`);
-      if((o.sos||null)!==((prev&&prev.sos)||null)){this.renderHead();this.dirtyView(true)}
+      if((o.sos||null)!==((prev&&prev.sos)||null)){this.renderHead();this.dirtyView(true);
+        if(live&&!Moder.hidden({pid:id},this.blk())){
+          if(o.sos&&Date.now()-o.sos<SOS_MS)Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:this.whereText(id,o.pos),sos:true,key:'sos-'+id,tap:{k:'sos',pid:id}});
+          else if(prev&&prev.sos)Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+id,tap:{k:'map',pid:id}});
+        }}
+      this.checkOff(R,prev,live);
       this.dirtyView();return}
     if(kind==='t'){const k=+parts[2];if(!o)delete R.chunks[k];else R.chunks[k]=decTrack(o);R.ver++;this.dirtyView();return}
     if(kind==='r'){R.route=o?decRoute(o):null;this.routesChanged();return}
@@ -4445,7 +4583,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   pushPt(p){this.track.push(p);if(this.track.length>40000)this.track.splice(0,5000);this.addShared(p)},
   addShared(p){const sh=this.shared,l=sh[sh.length-1];if(!l||dist(l,p)>=12||p[2]-l[2]>=60000){sh.push(p);this.dirty.add(Math.floor((sh.length-1)/CHUNK))}},
   followRoute(){const fw=this.follow;if(!fw)return null;return fw.k==='own'?this.own:(this.routes[fw.id]||null)},
-  setFollow(fw){this.follow=fw;this.prog=null;this.offSince=null;this.offAlerted=false;this.armed=false;this.endReached=false;this.finT=null;this.ph=[];this.pe=null;
+  setFollow(fw){this.follow=fw;this.prog=null;this.offSince=null;this.offAlerted=false;this.armed=false;this.endReached=false;this.finT=null;this.ph=[];this.pe=null;this.passed={};
     if(GPS.last)this.updateProgress(GPS.last);this.publish(true);this.save();RideMap.routesDirty=true;this.dirtyView(true)},
   updateProgress(f){
     const r=this.followRoute();if(!r){this.prog=null;return}
@@ -4456,14 +4594,21 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     /* tant qu'on n'est jamais passé sur le tracé (trajet d'approche), pas d'avancement ni d'alerte */
     this.prog={rid:r.id,along:this.armed?loc.along:0,L:r.L,off:loc.off,gainLeft:this.armed?loc.gainLeft:r.gain,ele:loc.ele,wait:!this.armed};
     if(loc.off>lim){if(!this.offSince)this.offSince=Date.now();
-      if(settings.offAlert&&this.armed&&!this.offAlerted&&Date.now()-this.offSince>=8000){this.offAlerted=true;Snd.warn();vib([400,150,400]);toast('⚠ Hors tracé : '+fmtDist(loc.off),true)}}
-    else if(loc.off<lim*0.7){if(this.offAlerted){Snd.ok();toast('✔ De retour sur le tracé')}this.offSince=null;this.offAlerted=false}
+      if(settings.offAlert&&this.armed&&!this.offAlerted&&Date.now()-this.offSince>=8000){this.offAlerted=true;Snd.warn();vib([400,150,400]);toast('⚠ Hors tracé : '+fmtDist(loc.off),true);
+        if(document.visibilityState==='hidden')Notify.show({title:'⚠ Hors tracé',body:'Tu es à '+fmtDist(loc.off)+' du tracé « '+r.name+' ».',sos:true,key:'off-me',tap:{k:'map'}})}}
+    else if(loc.off<lim*0.7){if(this.offAlerted){Snd.ok();toast('✔ De retour sur le tracé');Notify.clear('off-me')}this.offSince=null;this.offAlerted=false}
     /* allure-effort pour l'arrivée estimée : un relevé toutes les 30 s ; tant qu'on n'avance pas sur le tracé (attente au départ), l'origine se décale */
     if(this.armed&&loc.off<=Math.max(lim*2,100)&&!this.endReached){
       const e=effortAt(r,loc.along),h=this.ph,last=h[h.length-1];
       if(!last||f.t-last[0]>=30000){if(h.length===1&&e-h[0][1]<0.03)this.ph=[[f.t,e]];else{h.push([f.t,e]);if(h.length>3000)h.splice(1,1)}}
       this.pe=effortPace(this.ph);
     }
+    if(this.armed&&loc.off<=Math.max(lim*2,100))(r.wpts||[]).forEach((w,i)=>{
+      if(w.a==null||this.passed[i]||loc.along<w.a-15||loc.along>w.a+400)return;
+      this.passed[i]=f.t;const d=w.p>0&&this.runStart?w.p-(f.t-this.runStart)/1000:null;
+      this.sysMsg('📍 '+w.n+(d!=null?' · '+fmtDelta(d):''));this.publish(true);
+      if(settings.speak)Voice.say(w.n+(d!=null&&Math.abs(d)>=60?' : '+fmtDelta(d)+' sur le plan':d!=null?' : dans les temps':''));
+    });
     if(!this.endReached&&r.L>500&&r.L-loc.along<80&&loc.off<60&&this.stats.dist>r.L*0.5){this.endReached=true;this.finT=f.t;Snd.ok();toast('🏁 Fin du tracé « '+r.name+' »');this.publish(true)}
   },
   tick(){
@@ -4482,14 +4627,37 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   },
   sysMsg(text,t){this.addMsg({id:'sys-'+uid(),t:t||Date.now(),sys:true,text},true)},
   notify(m){
-    const sos=m.k==='sos';
-    if(document.visibilityState==='hidden'&&NATIVE&&settings.notif){
-      try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':m.fw?'📣 ':'💬 ')+m.name,body:Moder.clean(m.text),smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
+    const sos=m.k==='sos',away=document.visibilityState==='hidden'||this.tab!=='chat';
+    /* notification : toujours pour un SOS ; pour un message, si on ne regarde pas la messagerie.
+       Clé par personne : son dernier message remplace le précédent, « tout va bien » remplace son SOS. */
+    if(sos||away)Notify.show({title:sos?'🆘 '+m.name+' a besoin d\'aide':(m.fw?'📣 ':'💬 ')+m.name,
+      body:sos?this.whereText(m.pid,m.pos):Moder.clean(m.text),sos,key:(sos||m.k==='ok'?'sos-':'msg-')+m.pid,tap:{k:sos?'sos':'msg',pid:m.pid}});
     if(sos){Snd.sos();vib([600,200,600,200,900])}else{if(settings.msgSound)Snd.msg();vib([80,60,80])}
     /* lecture à voix haute : on court sans regarder l'écran */
     if(settings.speak)setTimeout(()=>Voice.say(sos?'Alerte : '+m.name+' a besoin d\'aide':(m.fw?'Message de ':'')+m.name+' : '+Moder.speech(m.text)),sos?1800:450);
     if(this.tab!=='chat'||sos)toast((sos?'':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
   },
+  /* organisateur (Group Run) : alerte quand un participant quitte son tracé plus de 30 s (option du menu) */
+  checkOff(R,prev,live){
+    const st=R.st,on=this.isOrg&&this.mode==='group'&&settings.orgOff;
+    if(!on||!st||st.status!=='on'||!st.f||!st.pr||st.pr.w||st.pr.off==null){
+      if(R.offAlerted&&(!on||!st||st.status!=='on')){R.offAlerted=false;Notify.clear('off-'+R.pid)}
+      if(!st||!st.pr||st.pr.w)R.offSince=null;return}
+    const lim=settings.offDist||50,off=st.pr.off,t=st.pos?st.pos.t:Date.now();
+    if(off>lim){
+      if(!R.offSince)R.offSince=t;
+      if(!R.offAlerted&&t-R.offSince>=30000&&live){R.offAlerted=true;
+        Snd.warn();vib([400,150,400]);toast('⚠ '+st.name+' a quitté le tracé ('+fmtDist(off)+')',true);this.sysMsg('⚠ '+st.name+' a quitté le tracé');
+        if(settings.speak)Voice.say('Attention : '+st.name+' a quitté le tracé');
+        Notify.show({title:'⚠ '+st.name+' a quitté le tracé',body:'À '+fmtDist(off)+' du tracé. '+this.whereText(R.pid,st.pos),sos:true,key:'off-'+R.pid,tap:{k:'off',pid:R.pid}})}
+    }else if(off<lim*0.7){
+      if(R.offAlerted){R.offAlerted=false;Snd.ok();toast('✔ '+st.name+' est revenu sur le tracé');this.sysMsg('✔ '+st.name+' est revenu sur le tracé');
+        Notify.show({title:'✔ '+st.name+' est revenu sur le tracé',body:'',key:'off-'+R.pid,tap:{k:'map',pid:R.pid}})}
+      R.offSince=null}
+  },
+  /* « à 1,2 km de toi (nord-est) » pour une alerte */
+  whereText(pid,pos){const R=this.riders[pid],p=pos||(R&&R.st&&R.st.pos);
+    return p&&GPS.last?'À '+fmtDist(dist(GPS.last,p))+' de toi ('+cardS(bearing(GPS.last,p))+'). Touche pour voir sa position.':'Touche pour voir sa position.'},
   unread(){let n=0;const b=this.blk();this.msgs.forEach(m=>{if(!m.sys&&m.pid!==this.pid&&m.rt>this.lastRead&&!Moder.hidden(m,b))n++});return n},
   send(text,q){
     text=String(text||'').trim().slice(0,500);if(!text||!this.on)return false;
@@ -4506,13 +4674,15 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
   save(){
     if(!this.on)return;this.lastSave=Date.now();
     const o={code:this.code,pid:this.pid,name:this.name,isOrg:this.isOrg,session:this.isOrg?this.session:null,sname:this.sname,start:this.start,
-      mode:this.mode,eco:this.eco,ph:this.ph.slice(-1500),runStart:this.runStart,altOff:this.altOff,finT:this.finT,
+      mode:this.mode,eco:this.eco,ph:this.ph.slice(-1500),runStart:this.runStart,altOff:this.altOff,finT:this.finT,passed:this.passed,
       stats:this.stats,altS:this.altS,altRef:this.altRef,follow:this.follow,own:this.own?encRoute(this.own):null,
       myMsgs:this.myMsgs,msgs:[...this.msgs.values()].sort((a,b)=>a.t-b.t).slice(-200),lastRead:this.lastRead,sos:this.sos,
       orgRoutes:this.isOrg?Object.values(this.routes).map(encRoute):null};
     for(const n of[40000,10000,2000,0]){o.track=n?encTrack(this.track.slice(-n)):null;if(store.set(K.active,o))return}
   },
-  summary(){const t=this.track;return{name:this.sname||'Sortie',me:this.name,start:this.runStart||this.start,end:this.finT||(t.length?t[t.length-1][2]:Date.now()),stats:Object.assign({},this.stats),code:this.code,mode:this.mode,track:encTrack(t),seg:encTrack(this.shared)}},
+  summary(){const t=this.track,fr=this.followRoute();return{name:this.sname||'Sortie',me:this.name,start:this.runStart||this.start,end:this.finT||(t.length?t[t.length-1][2]:Date.now()),stats:Object.assign({},this.stats),code:this.code,mode:this.mode,track:encTrack(t),seg:encTrack(this.shared),
+    /* pour rejouer la sortie : traces des autres et tracé suivi */
+    others:this.others().map(R=>({n:R.st.name,c:colorOf(R.pid),t:encTrack(thinTrack(fullTrackOf(R),3000))})).filter(o=>o.t),route:fr?encRoute(fr):null}},
   archive(a){const sm=a.track?{name:a.sname||'Sortie',me:a.name,start:a.runStart||a.start,end:a.finT||decTrack(a.track).slice(-1).map(q=>q[2])[0]||Date.now(),stats:a.stats,mode:a.mode,track:a.track}:null;if(sm)store.set(K.last,sm)},
   /* remise à zéro des compteurs (par ex. sur la ligne de départ, après le trajet) : le partage continue */
   async resetStats(){
@@ -4521,7 +4691,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!v)return;
     const n=Math.ceil(this.shared.length/CHUNK);for(let k=0;k<n;k++)this.pub('t/'+this.pid+'/'+k,null);
     this.track=[];this.shared=[];this.dirty=new Set();this.stats={dist:0,mov:0,vmax:0,gain:0,loss:0,alt:this.stats.alt,spd:null};this.altRef=this.stats.alt;
-    this.start=Date.now();this.runStart=null;this.ph=[];this.pe=null;this.finT=null;this.endReached=false;this.armed=false;this.prog=null;
+    this.start=Date.now();this.runStart=null;this.ph=[];this.pe=null;this.finT=null;this.endReached=false;this.armed=false;this.prog=null;this.passed={};
     if(GPS.last)this.updateProgress(GPS.last);this.publish(true);this.save();if(RideMap.myPl){RideMap.myPl.setLatLngs([]);RideMap.myPl._n=0}this.dirtyView(true);
     if(this.tab==='stats')Stats.render();toast('Compteurs remis à zéro');
   },
@@ -4532,7 +4702,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!silent){this.status='left';this.publish(true);this.publishChunks()}
     this.on=false;this.ended=true;clearInterval(this.tickI);clearInterval(this.expI);if(this.unsub)this.unsub();this.unsub=null;
     GPS.stop();Wake.off();
-    const sm=this.summary();if(!store.set(K.last,sm)){sm.track=null;store.set(K.last,sm)}
+    const sm=this.summary();if(!store.set(K.last,sm)){const s2=Object.assign({},sm,{others:null,route:null});if(!store.set(K.last,s2)){s2.track=null;store.set(K.last,s2)}}
     store.del(K.active);
     const m=this.m;this.m=null;if(!this.keepLink)setTimeout(()=>{try{m.close()}catch(e){}},silent?300:3000);
     Sheet.hide();show('home');
@@ -4685,7 +4855,7 @@ const RideMap={map:null,follow:true,mk:{},pl:{},me:null,myPl:null,routesDirty:tr
     if(fr&&pr&&pr.rid===fr.id&&pr.wait)h+=`<span class="chip route">🧭 ${esc(fr.name)} : tracé à ${fmtDist(pr.off)}, rejoins-le</span>`;
     else if(fr&&pr&&pr.rid===fr.id){const off=pr.off>(settings.offDist||50);
       const e=Ride.pe&&!Ride.finT?etaInfo(fr,pr.along,Ride.pe,GPS.last?GPS.last.t:Date.now()):null;
-      h+=`<span class="chip route${off?' off':''}">🧭 ${fmtKm(pr.along)} / ${fmtKm(fr.L)} km${fr.gain!=null&&pr.gainLeft!=null?' · D+ restant '+Math.round(pr.gainLeft)+' m':''}${e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${Ride.finT?' · 🏁 arrivé':''}${off?` · ⚠ hors tracé ${fmtDist(pr.off)}`:''}</span>`}
+      h+=`<span class="chip route${off?' off':''}">🧭 ${fmtKm(pr.along)} / ${fmtKm(fr.L)} km${fr.gain!=null&&pr.gainLeft!=null?' · D+ restant '+Math.round(pr.gainLeft)+' m':''}${e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${hasPlan(fr)&&!Ride.finT?' · '+fmtDelta(planDelta(fr,pr.along,Ride.runStart,GPS.last?GPS.last.t:Date.now()),true):''}${Ride.finT?' · 🏁 arrivé':''}${off?` · ⚠ hors tracé ${fmtDist(pr.off)}`:''}</span>`}
     else if(fr)h+=`<span class="chip route">🧭 ${esc(fr.name)} : en attente du GPS…</span>`;
     else if(Ride.follow)h+=`<span class="chip route">🧭 Tracé en cours de chargement…</span>`;
     $('#rChips').innerHTML=h;
@@ -4732,7 +4902,7 @@ function riderView(R,routeOf,col){
   const t0=st.t0||st.start,tEnd=st.fin||(st.pos?st.pos.t:now);
   const tiles=statTiles({dist:s.dist||0,mov:s.mov||0,el:st.t0?Math.max(0,tEnd-t0):0,gain:s.gain,loss:s.loss,alt:st.pos?st.pos.alt:null,spd:stale||st.status!=='on'?null:st.pos.spd,vam:stale?null:recentVAM(tr)});
   const r=st.f?routeOf(st):null,pr=st.pr;
-  const rb=r?routeBlock({r,a:pr&&!pr.w?pr.a:null,off:pr?pr.off:null,wait:pr?!!pr.w:false,pe:st.pe,tRef:st.pos?st.pos.t:now,fin:st.fin,t0,dots:pr&&!pr.w?[{a:pr.a,col,title:st.name}]:[]}):'';
+  const rb=r?routeBlock({r,a:pr&&!pr.w?pr.a:null,off:pr?pr.off:null,wait:pr?!!pr.w:false,pe:st.pe,tRef:st.pos?st.pos.t:now,fin:st.fin,t0:st.t0,passed:st.wp,dots:pr&&!pr.w?[{a:pr.a,col,title:st.name}]:[]}):'';
   return{tr,tiles,rb,r};
 }
 /* fiche d'un participant */
@@ -4785,7 +4955,7 @@ const Stats={
       Ride.others().forEach(R=>{const st=R.st;if(st.status!=='on'||!st.pr||!st.f||st.pr.w)return;
         if(st.f.k==='org'&&Ride.follow&&Ride.follow.k==='org'&&st.f.id===Ride.follow.id)dots.push({a:st.pr.a,col:colorOf(R.pid),title:st.name})});
       if(ok&&!pr.wait)dots.push({a:pr.along,col:'#00E5FF',me:true,title:'Moi'});
-      h+=routeBlock({r:fr,a:ok&&!pr.wait?pr.along:null,off:ok?pr.off:null,wait:ok?pr.wait:false,pe:Ride.pe,tRef:GPS.last?GPS.last.t:now,fin:Ride.finT,t0,dots});
+      h+=routeBlock({r:fr,a:ok&&!pr.wait?pr.along:null,off:ok?pr.off:null,wait:ok?pr.wait:false,pe:Ride.pe,tRef:GPS.last?GPS.last.t:now,fin:Ride.finT,t0:Ride.runStart,passed:Ride.passed,dots});
     }else h+=`<section class="card"><h2>🧭 Parcours</h2><p class="hint">Importe le GPX du parcours (☰ Menu › Tracé GPX) : avancement, dénivelé restant${live?', arrivée estimée pour ceux qui te suivent':' et arrivée estimée'}.</p></section>`;
     h+=`<section class="card">${segTable(tr,settings.seg)}</section>`;
     if(!live)h+=`<section class="card"><h2>Le groupe</h2><ul class="group">${this.groupRows()}</ul></section>`;
@@ -4917,6 +5087,7 @@ const Routes={box:null,
       b.innerHTML=`<section class="card"><h2>GPX du parcours</h2>${own?`<ul class="rlist"><li><span><b>${esc(own.name)}</b><small>${this.info(own)}</small></span>
         ${fw&&fw.k==='own'?'<span class="tag">suivi</span>':'<button type="button" class="primary mini" data-act="followown">Suivre</button>'}<button type="button" class="mini" data-act="see" data-id="own" aria-label="Voir le tracé">🗺</button><button type="button" class="mini danger" data-act="delown" aria-label="Retirer le tracé">🗑</button></li></ul>`
         :'<p class="hint">Importe le GPX de la course : tu vois ton avancement et le dénivelé restant, et ceux qui te suivent voient en plus ton arrivée estimée et tes heures de passage aux points du GPX (ravitaillements…).</p>'}
+        ${own?`<button type="button" data-act="plan">⏱ ${hasPlan(own)?'Modifier le plan de course':'Ajouter un plan de course (facultatif)'}</button>`:''}
         <button type="button" data-act="addown">📂 ${own?'Remplacer par un autre GPX':'Importer le GPX'}</button></section>`;
       return}
     let h=`<section class="card"><h2>Tracé suivi</h2>${fr?`<p><b>${esc(fr.name)}</b> · ${this.info(fr)}</p><div class="row"><button type="button" data-act="see" data-id="${fw.k==='own'?'own':fr.id}">🗺 Voir</button><button type="button" data-act="unfollow">✖ Ne plus suivre</button></div>`
@@ -4930,6 +5101,7 @@ const Routes={box:null,
     h+=`<section class="card"><h2>Mon tracé personnel</h2>${own?`<ul class="rlist"><li><span><b>${esc(own.name)}</b><small>${this.info(own)}</small></span>
       ${fw&&fw.k==='own'?'<span class="tag">suivi</span>':'<button type="button" class="primary mini" data-act="followown">Suivre</button>'}<button type="button" class="mini" data-act="see" data-id="own" aria-label="Voir mon tracé">🗺</button><button type="button" class="mini danger" data-act="delown" aria-label="Retirer mon tracé">🗑</button></li></ul>`
       :'<p class="hint">Importe le GPX du parcours que tu veux faire : les autres le verront sur leur carte, avec ta position dessus.</p>'}
+      ${own?`<button type="button" data-act="plan">⏱ ${hasPlan(own)?'Modifier mon plan de course':'Plan de course (facultatif)'}</button>`:''}
       <button type="button" data-act="addown">📂 ${own?'Remplacer par un autre GPX':'Importer mon tracé (GPX)'}</button></section>`;
     const oth=Ride.others().filter(R=>R.route&&R.st.status==='on');
     if(oth.length)h+=`<section class="card"><h2>Tracés des autres</h2><ul class="rlist">${oth.map(R=>`<li><span class="dot" style="background:${colorOf(R.pid)}">${esc(initials(R.st.name))}</span><span><b>${esc(R.st.name)} : ${esc(R.route.name)}</b><small>${this.info(R.route)}${R.st.pr&&R.st.f&&R.st.f.k==='own'?' · en est à '+fmtKm(R.st.pr.a)+' km':''}</small></span>
@@ -4938,6 +5110,7 @@ const Routes={box:null,
   },
   async act(a,id){
     if(a==='follow'){Ride.setFollow({k:'org',id});toast('Tracé suivi : '+Ride.routes[id].name);this.render();return}
+    if(a==='plan'){PlanEdit.open(Ride.own,()=>{Ride.publishOwn();Ride.save();RideMap.routesDirty=true;Ride.dirtyView(true);if(Ride.tab==='stats')Stats.render()});return}
     if(a==='followown'){Ride.setFollow({k:'own'});toast('Tracé suivi : '+Ride.own.name);this.render();return}
     if(a==='unfollow'){Ride.setFollow(null);this.render();return}
     if(a==='see'||a==='seeo'){const r=a==='seeo'?(Ride.riders[id]||{}).route:id==='own'?Ride.own:Ride.routes[id];if(!r)return;Sheet.hide();Ride.setTab('map');setTimeout(()=>RideMap.fitRoute(r),80);return}
@@ -4965,6 +5138,7 @@ const RideMenu={
       <button type="button" data-m="routes">🧭 GPX du parcours</button>
       <button type="button" data-m="map">🗂 Fond de carte et affichage</button>
       <button type="button" data-m="reset">↺ Remettre les compteurs à zéro (au départ)</button>
+      <button type="button" data-m="replay">▶ Rejouer depuis le départ</button>
       <button type="button" data-m="gpx">⬇ Exporter ma trace (GPX)</button>
       <button type="button" data-m="settings">⚙ Réglages</button>
       <button type="button" data-m="help">❓ Aide</button>
@@ -4974,8 +5148,10 @@ const RideMenu={
       <button type="button" data-m="routes">🧭 Tracés GPX</button>
       <button type="button" data-m="map">🗂 Fond de carte et affichage</button>
       <button type="button" data-m="reset">↺ Remettre mes compteurs à zéro</button>
+      <button type="button" data-m="replay">▶ Rejouer la sortie depuis le départ</button>
       <button type="button" data-m="gpx">⬇ Exporter ma trace (GPX)</button>
       ${o?'<button type="button" data-m="gpxall">⬇ Traces de tout le groupe (GPX)</button>':''}
+      ${o?`<button type="button" data-m="orgoff" aria-pressed="${!!settings.orgOff}">🧭 M'alerter si quelqu'un quitte le tracé : <b>${settings.orgOff?'oui':'non'}</b></button>`:''}
       <button type="button" data-m="settings">⚙ Réglages</button>
       <button type="button" data-m="help">❓ Aide</button>
       ${o?'<button type="button" class="danger" data-m="end">⏹ Terminer la sortie pour tous</button>':''}
@@ -4989,6 +5165,10 @@ const RideMenu={
       if(k==='gpx'){if(Ride.track.length<2){toast('Pas encore de trace enregistrée.',true);return}shareFile(slug('followtrail_'+Ride.sname+'_'+Ride.name)+'.gpx',trackToGPX(Ride.sname+' – '+Ride.name,[{name:Ride.name,pts:Ride.track}]))}
       if(k==='gpxall'){const t=[{name:Ride.name,pts:Ride.track}].concat(Ride.others().map(R=>({name:R.st.name,pts:Ride.fullTrack(R)})));shareFile(slug('followtrail_'+Ride.sname)+'.gpx',trackToGPX(Ride.sname,t))}
       if(k==='reset'){Sheet.hide();Ride.resetStats()}
+      if(k==='replay')Replay.open(rideReplayData());
+      if(k==='orgoff'){settings.orgOff=!settings.orgOff;saveSettings();b.setAttribute('aria-pressed',String(settings.orgOff));b.querySelector('b').textContent=settings.orgOff?'oui':'non';
+        toast(settings.orgOff?'Tu seras alerté si quelqu\'un s\'écarte de son tracé plus de 30 s (écart réglable dans les Réglages).':'Alerte hors tracé du groupe désactivée');
+        if(settings.orgOff){Notify.ask();Ride.others().forEach(R=>{R.offSince=null;R.offAlerted=false})}}
       if(k==='settings'){Sheet.hide();Settings.open()}
       if(k==='help'){Sheet.hide();show('help')}
       if(k==='end'){Sheet.hide();Ride.endForAll()}
@@ -5030,11 +5210,12 @@ const LiveCreate={route:null,
     $('#lMe').value=store.get(K.me,'');$('#lEco').checked=!!settings.eco;this.list();
   },
   list(){const r=this.route;$('#lRoute').innerHTML=r?`<li><span><b>${esc(r.name)}</b><small>${Routes.info(r)}</small></span><button type="button" class="mini danger" id="lRm" aria-label="Retirer ${esc(r.name)}">🗑</button></li>`:'';
-    $('#lAddGpx').textContent=r?'📂 Choisir un autre GPX':'📂 Choisir le GPX';const b=$('#lRm');if(b)b.onclick=()=>{this.route=null;this.list()}},
+    $('#lAddGpx').textContent=r?'📂 Choisir un autre GPX':'📂 Choisir le GPX';const b=$('#lRm');if(b)b.onclick=()=>{this.route=null;this.list()};
+    const p=$('#lPlan');p.hidden=!r;if(r)p.textContent=hasPlan(r)?'⏱ Plan de course'+(r.pf?' : arrivée en '+fmtHM(r.pf):'')+' (modifier)':'⏱ Ajouter un plan de course (facultatif)'},
   async add(){const rs=await pickGPX(false);if(rs[0]){this.route=rs[0];if(/^Ma course du/.test($('#lName').value))$('#lName').value=rs[0].name;this.list()}},
   async go(){
     const name=$('#lMe').value.trim();if(!name){toast('Indique ton prénom : il s\'affiche chez ceux qui te suivent.',true);$('#lMe').focus();return}
-    store.set(K.me,name);Snd.unlock();Voice.unlock();settings.eco=$('#lEco').checked;saveSettings();
+    store.set(K.me,name);Snd.unlock();Voice.unlock();Notify.ask();settings.eco=$('#lEco').checked;saveSettings();
     const link=await newLink($('#lGo'));if(!link)return;
     const session={name:$('#lName').value.trim()||'Ma course',created:new Date().toISOString(),status:'open'};
     const own=this.route;if(own)own.owner=null;
@@ -5043,7 +5224,49 @@ const LiveCreate={route:null,
   }
 };
 $('#lAddGpx').onclick=()=>LiveCreate.add();
+$('#lPlan').onclick=()=>PlanEdit.open(LiveCreate.route,()=>LiveCreate.list());
 $('#lGo').onclick=()=>LiveCreate.go();
+
+/* ---------------- Plan de course (facultatif) ----------------
+   Temps prévus depuis le départ aux points du GPX et à l'arrivée. « Répartir » place les temps
+   au prorata des km-effort à partir d'un objectif total ; chaque temps reste modifiable.
+   Le plan voyage avec le tracé : ceux qui suivent voient l'heure prévue à chaque point et l'avance ou le retard. */
+const PlanEdit={r:null,onSave:null,
+  open(r,onSave){
+    if(!r){toast('Choisis d\'abord le GPX du parcours.',true);return}
+    this.r=r;this.onSave=onSave;
+    const wps=(r.wpts||[]).map((w,i)=>({w,i})).filter(x=>x.w.a!=null);
+    const box=document.createElement('div');box.className='planbox';
+    box.innerHTML=`<p class="hint">Temps prévus <b>depuis le départ</b>, en heures et minutes (par ex. 3:45 ou 3.45). Ceux qui te suivent voient l'heure prévue à chaque point et ton avance ou ton retard.</p>
+      <div class="pltot"><label>Objectif d'arrivée (temps total)<input type="text" id="plTot" inputmode="decimal" autocomplete="off" placeholder="ex. 18:30" value="${r.pf?fmtHM(r.pf):''}"></label><button type="button" id="plSpread">↧ Répartir</button></div>
+      <p class="hint">« Répartir » calcule les temps des points au prorata des km-effort (1 km + 100 m de D+), à effort régulier. Tu peux ensuite corriger chaque point, par exemple pour tenir compte de la fatigue ou des arrêts au ravito.</p>
+      <div class="segwrap"><table class="seg plantab"><thead><tr><th scope="col">Point</th><th scope="col">km</th><th scope="col">D+</th><th scope="col">Prévu</th></tr></thead><tbody>
+      ${wps.map(({w,i})=>`<tr><th scope="row">${esc(w.n)}</th><td>${fmtKm(w.a)}</td><td>${Math.round(gainAt(r,w.a))}</td><td><input type="text" data-pi="${i}" inputmode="decimal" autocomplete="off" value="${w.p>0?fmtHM(w.p):''}" placeholder="h:mm" aria-label="Temps prévu à ${esc(w.n)}"></td></tr>`).join('')}
+      <tr class="fin"><th scope="row">🏁 Arrivée</th><td>${fmtKm(r.L)}</td><td>${r.gain!=null?r.gain:'—'}</td><td><input type="text" id="plFin" inputmode="decimal" autocomplete="off" value="${r.pf?fmtHM(r.pf):''}" placeholder="h:mm" aria-label="Temps prévu à l'arrivée"></td></tr></tbody></table></div>
+      ${wps.length?'':'<p class="hint">Ce GPX n\'a pas de points de passage : seul le temps d\'arrivée compte, réparti en continu le long du tracé.</p>'}
+      <div class="row"><button type="button" class="primary" id="plSave">✔ Enregistrer le plan</button>${hasPlan(r)?'<button type="button" class="danger" id="plDel">Retirer le plan</button>':''}</div>`;
+    Sheet.show('⏱ Plan de course',box);
+    $('#plSpread').onclick=()=>{
+      const tot=parseHM($('#plTot').value);if(!(tot>0)){toast('Indique l\'objectif total, par ex. 18:30',true);$('#plTot').focus();return}
+      const E=effortAt(r,r.L)||1;
+      $$('#sheet [data-pi]').forEach(inp=>{const w=r.wpts[+inp.dataset.pi];inp.value=fmtHM(tot*effortAt(r,w.a)/E)});$('#plFin').value=fmtHM(tot);
+    };
+    $('#plTot').addEventListener('keydown',e=>{if(e.key==='Enter')$('#plSpread').click()});
+    $('#plSave').onclick=()=>{
+      const vals=[];let bad=null;
+      $$('#sheet [data-pi]').forEach(inp=>{const v=parseHM(inp.value);if(Number.isNaN(v))bad=inp;vals.push([+inp.dataset.pi,v])});
+      const fin=parseHM($('#plFin').value);if(Number.isNaN(fin))bad=$('#plFin');
+      if(bad){toast('Format non reconnu : écris par ex. 3:45',true);bad.focus();return}
+      /* les temps doivent augmenter le long du tracé */
+      const seq=vals.filter(x=>x[1]>0).map(x=>[r.wpts[x[0]].a,x[1]]).concat(fin>0?[[r.L,fin]]:[]).sort((a,b)=>a[0]-b[0]);
+      for(let k=1;k<seq.length;k++)if(seq[k][1]<=seq[k-1][1]){toast('Les temps prévus doivent augmenter d\'un point au suivant.',true);return}
+      if(!seq.length){toast('Plan vide : indique au moins le temps d\'arrivée.',true);return}
+      vals.forEach(([i,v])=>{if(v>0)r.wpts[i].p=v;else delete r.wpts[i].p});if(fin>0)r.pf=fin;else delete r.pf;
+      Sheet.hide();toast('Plan de course enregistré');if(this.onSave)this.onSave(r);
+    };
+    const del=$('#plDel');if(del)del.onclick=()=>{(r.wpts||[]).forEach(w=>delete w.p);delete r.pf;Sheet.hide();toast('Plan retiré');if(this.onSave)this.onSave(r)};
+  }
+};
 
 /* ---------------- Créer une sortie ---------------- */
 const Create={routes:[],
@@ -5059,7 +5282,7 @@ const Create={routes:[],
   async add(){const rs=await pickGPX(true);this.routes.push(...rs);this.list()},
   async go(){
     const name=$('#cMe').value.trim();if(!name){toast('Indique ton prénom : il s\'affiche sur la carte des autres.',true);$('#cMe').focus();return}
-    store.set(K.me,name);Snd.unlock();Voice.unlock();
+    store.set(K.me,name);Snd.unlock();Voice.unlock();Notify.ask();
     const link=await newLink($('#cGo'));if(!link)return;
     const session={name:$('#cName').value.trim()||'Sortie trail',created:new Date().toISOString(),status:'open'};
     const routes=this.routes.slice();
@@ -5110,7 +5333,7 @@ const Join={link:null,stream:null,own:null,
   join(){
     const name=$('#jName').value.trim();if(!name){toast('Indique ton prénom : il s\'affiche sur la carte des autres.',true);$('#jName').focus();return}
     if(!this.link){toast('Cherche d\'abord la sortie',true);return}
-    store.set(K.me,name);Snd.unlock();Voice.unlock();
+    store.set(K.me,name);Snd.unlock();Voice.unlock();Notify.ask();
     const v=$('#jRoute').value;let follow=null,own=null;
     if(v.startsWith('org:'))follow={k:'org',id:v.slice(4)};
     if(v==='own'){if(!this.own){toast('Choisis d\'abord ton fichier GPX.',true);this.pickOwn();return}own=this.own;own.owner=null;follow={k:'own'}}
@@ -5160,7 +5383,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       m.on('dragstart',()=>{this.follow=false})}
     this.on=true;show('watch');this.layout();this.setTab(this.wide&&this.tab==='map'?'run':this.tab);
     clearInterval(this.tickI);this.tickI=setInterval(()=>this.tick(),2000);
-    Voice.unlock();Snd.unlock();this.renderHead();this.saveList();
+    Voice.unlock();Snd.unlock();this.renderHead();this.saveList();if(NATIVE)ensureNotifPermission();
     setTimeout(()=>{this.map.invalidateSize();this.update()},60);
   },
   async add(code,{silent,noOpen}={}){
@@ -5227,7 +5450,9 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       if(!o||!o.pid)return;if(R.st&&R.st.upd>o.upd)return;
       const prev=R.st;R.st=o;
       if(o.pos&&o.status==='on'){const tr=R.trail,l=tr[tr.length-1];if(!l||l[2]!==o.pos.t){tr.push([o.pos.lat,o.pos.lon,o.pos.t,o.pos.alt]);if(tr.length>4000)tr.splice(0,500)}}
-      if(o.sos&&Date.now()-o.sos<SOS_MS&&(!prev||prev.sos!==o.sos)&&Date.now()-S.syncT>3000){Snd.sos();vib([600,200,600,200,900]);toast('🆘 '+o.name+' a besoin d\'aide',true)}
+      if(o.sos&&Date.now()-o.sos<SOS_MS&&(!prev||prev.sos!==o.sos)&&Date.now()-S.syncT>3000){Snd.sos();vib([600,200,600,200,900]);toast('🆘 '+o.name+' a besoin d\'aide',true);
+        Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:'Touche pour voir sa position.',sos:true,key:'sos-'+S.code+id,tap:{w:S.code,k:'sos',pid:id}})}
+      if(!o.sos&&prev&&prev.sos&&Date.now()-S.syncT>3000){toast('✔ '+o.name+' : tout va bien');Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+S.code+id,tap:{w:S.code,k:'map',pid:id}})}
       if(!prev)this.routesDirty=true;
       if(prev&&prev.f!==o.f&&JSON.stringify(prev.f)!==JSON.stringify(o.f))this.routesDirty=true;
       this.dirty();return}
@@ -5241,8 +5466,10 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(!mine&&m.t>S.syncT-10000&&Date.now()-S.syncT>3000&&!Moder.hidden(m,this.blk(S))){
       const sos=m.k==='sos';
       if(sos){Snd.sos();vib([600,200,600,200,900])}else if(settings.msgSound&&!m.fw){Snd.msg();vib([80,60,80])}
-      if(!m.fw||sos){if(this.tab!=='chat'||this.chatSrc!==S.code||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
-        if(document.visibilityState==='hidden'&&NATIVE&&settings.notif)try{P.notif.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:(sos?'🆘 ':'💬 ')+m.name,body:Moder.clean(m.text),smallIcon:'ic_stat_followtrail',iconColor:'#FF8A1F'}]}).catch(()=>{})}catch(e){}}
+      if(!m.fw||sos){const away=document.visibilityState==='hidden'||this.tab!=='chat'||this.chatSrc!==S.code;
+        if(away||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
+        if(away||sos)Notify.show({title:sos?'🆘 '+m.name+' a besoin d\'aide':'💬 '+m.name,body:sos?'Touche pour voir sa position.':Moder.clean(m.text),sos,
+          key:(sos||m.k==='ok'?'sos-':'msg-')+S.code+m.pid,tap:{w:S.code,k:sos?'sos':'msg',pid:m.pid}})}
     }
     if(this.tab==='chat'&&this.chatSrc===S.code&&document.visibilityState==='visible')S.lastRead=Date.now();
     this.renderChat();this.renderHead();
@@ -5345,7 +5572,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(!this.map)return;const now=Date.now();
     $('#wChips').innerHTML=this.people().map(({S,R,key})=>{const st=R.st,s=st.s||{},r=this.routeOf(S,R),pr=st.pr;
       const e=r&&pr&&!pr.w&&st.pe&&!st.fin?etaInfo(r,pr.a,st.pe,st.pos?st.pos.t:now):null,age=st.pos?now-st.pos.t:null;
-      return`<button type="button" class="chip wchip${this.sel===key?' on':''}" data-wsel="${esc(key)}" style="--c:${colorOf(R.pid)}"><i></i>${esc(st.name)} · ${fmtKm(s.dist)} km${r&&pr&&!pr.w?' / '+fmtKm(r.L):''}${st.fin?' · 🏁 arrivé':e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${st.status==='left'?' · terminé':age!=null&&age>STALE_MS?' · ⏳ '+fmtAgo(age):''}</button>`}).join('');
+      return`<button type="button" class="chip wchip${this.sel===key?' on':''}" data-wsel="${esc(key)}" style="--c:${colorOf(R.pid)}"><i></i>${esc(st.name)} · ${fmtKm(s.dist)} km${r&&pr&&!pr.w?' / '+fmtKm(r.L):''}${st.fin?' · 🏁 arrivé':e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${r&&pr&&!pr.w&&!st.fin&&hasPlan(r)&&st.t0?' · '+fmtDelta(planDelta(r,pr.a,st.t0,st.pos?st.pos.t:now),true):''}${st.status==='left'?' · terminé':age!=null&&age>STALE_MS?' · ⏳ '+fmtAgo(age):''}</button>`}).join('');
   },
   /* onglet coureurs : liste + fiche détaillée du coureur choisi */
   renderRun(){
@@ -5397,8 +5624,10 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     const box=document.createElement('div');box.className='menu';
     box.innerHTML=`<button type="button" class="primary" data-wm="add">➕ Suivre un autre coureur</button>
       <button type="button" data-wm="fit">👥 Voir tout le monde sur la carte</button>
+      <button type="button" data-wm="replay">▶ Rejouer ${this.srcList().length>1?'(coureur choisi)':'depuis le départ'}</button>
       <button type="button" data-wm="map">🗂 Fond de carte</button>
       <button type="button" data-wm="name">✏ Mon prénom${this.me().name?' : '+esc(this.me().name):''}</button>
+      ${Notify.state()==='default'?'<button type="button" data-wm="notif">🔔 Activer les notifications (messages, alertes)</button>':''}
       <h2>Suivis</h2><ul class="rlist">${this.srcList().map(S=>`<li><span><b>${esc(this.srcName(S))}</b><small>${this.isLive(S)?'Course':'Sortie Group Run'} · code ${fmtCode(S.code)}</small></span><button type="button" class="mini" data-wm="share" data-code="${S.code}" aria-label="Partager le lien">📤</button><button type="button" class="mini danger" data-wm="rm" data-code="${S.code}" aria-label="Ne plus suivre">🗑</button></li>`).join('')||'<li class="hint">Aucun</li>'}</ul>
       <button type="button" data-wm="help">❓ Aide</button><button type="button" data-wm="home">🏠 Accueil (le suivi continue)</button>`;
     Sheet.show('Suivi',box);
@@ -5411,6 +5640,8 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
         try{if(NATIVE)await P.share.share({title:'Follow Trail',text});else if(navigator.share)await navigator.share({title:'Follow Trail',text});else{await navigator.clipboard.writeText(text);toast('Lien copié')}}catch(err){}}
       if(k==='rm'){Sheet.hide();this.remove(b.dataset.code,true)}
       if(k==='help'){Sheet.hide();show('help')}
+      if(k==='replay'){const x=this.selected(),code=x?x.S.code:(this.srcList()[0]||{}).code;const d=code&&watchReplayData(code);if(d)Replay.open(d);else toast('Rien à rejouer pour l\'instant.',true)}
+      if(k==='notif'){const st=await Notify.ask();Sheet.hide();toast(st==='granted'?'Notifications activées':'Notifications refusées par le navigateur',st!=='granted')}
       if(k==='home'){Sheet.hide();show('home')}
     };
   }
@@ -5420,7 +5651,7 @@ $('#wMenu').onclick=()=>Watch.menu();
 $('#wAll').onclick=()=>Watch.fitAll();
 $('#wTrail').onclick=()=>{settings.showTrails=!settings.showTrails;saveSettings();$('#wTrail').classList.toggle('on',settings.showTrails);toast(settings.showTrails?'Positions + traces':'Positions seules');Watch.update()};
 $('#wLayers').onclick=()=>MapOpts.open(true);
-$('#wNameOk').onclick=()=>{const n=$('#wNameIn').value.trim();if(!n){$('#wNameIn').focus();return}Watch.setName(n);toast('Merci '+n+' !')};
+$('#wNameOk').onclick=()=>{const n=$('#wNameIn').value.trim();if(!n){$('#wNameIn').focus();return}Watch.setName(n);toast('Merci '+n+' !');Notify.ask()};
 $('#wNameIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('#wNameOk').click()});
 $('#watch').addEventListener('click',e=>{
   const s=e.target.closest('[data-wsel]');if(s){const[c,p]=s.dataset.wsel.split('|');Watch.select(c,p);if(!Watch.wide&&e.target.closest('#wSos'))Watch.setTab('map');return}
@@ -5451,6 +5682,95 @@ $('#waGo').onclick=()=>WAdd.go();
 $('#waCode').addEventListener('keydown',e=>{if(e.key==='Enter')WAdd.go()});
 $('#waScan').onclick=()=>{if(QR.stream)QR.stop();else QR.start($('#waVideo'),$('#waScan'),c=>Watch.add(c))};
 
+/* ---------------- Rejouer la sortie ----------------
+   Tout le monde sur la carte, en accéléré : frise du temps, lecture/pause, vitesse.
+   Données : [{name, col, pts:[[lat,lon,t,alt]]}] et les tracés suivis. Disponible pendant la sortie
+   (menu), dans le bilan (les traces de tous sont gardées à la fin) et dans le suivi. */
+const REPLAY_SPEEDS=[10,30,60,120,300,600,1200];
+const Replay={map:null,P:[],t0:0,t1:0,t:0,playing:false,speed:60,back:'home',follow:null,raf:null,
+  open(d){
+    const P=(d.people||[]).filter(p=>p&&p.pts&&p.pts.length>1).map(p=>{const c=[0];for(let k=1;k<p.pts.length;k++)c.push(c[k-1]+dist(p.pts[k-1],p.pts[k]));return{name:p.name,col:p.col,pts:p.pts,cum:c,i:0}});
+    if(!P.length){toast('Pas encore de trace à rejouer.',true);return}
+    this.stop();this.back=current==='replay'?this.back:current;this.P=P;this.follow=null;
+    this.t0=Math.min(...P.map(p=>p.pts[0][2]));this.t1=Math.max(...P.map(p=>p.pts[p.pts.length-1][2]));
+    Sheet.hide();show('replay');$('#rpTitle').textContent=d.title||'Rejouer';
+    if(!this.map){this.map=makeMap($('#rpMap'));this.lay=L.layerGroup().addTo(this.map);this.map.on('dragstart',()=>{this.follow=null;this.chips()})}
+    this.lay.clearLayers();
+    (d.routes||[]).forEach(r=>{if(r&&r.pts)L.polyline(r.pts.map(q=>[q[0],q[1]]),{color:'#FFD23F',weight:4,opacity:.7,dashArray:'8 8',interactive:false}).addTo(this.lay)});
+    P.forEach(p=>{
+      L.polyline(p.pts.map(q=>[q[0],q[1]]),{color:p.col,weight:3,opacity:.22,interactive:false}).addTo(this.lay);
+      p.line=L.polyline([],{color:p.col,weight:5,opacity:.95,interactive:false}).addTo(this.lay);
+      p.mk=L.marker([p.pts[0][0],p.pts[0][1]],{icon:riderIcon(p.name,p.col,''),zIndexOffset:1000}).addTo(this.lay).on('click',()=>this.setFollow(p));
+    });
+    const dur=(this.t1-this.t0)/1000;
+    /* vitesse par défaut : toute la sortie en une minute et demie environ */
+    this.speed=REPLAY_SPEEDS.reduce((b,s)=>Math.abs(s-dur/90)<Math.abs(b-dur/90)?s:b,REPLAY_SPEEDS[0]);
+    $('#rpSpeed').innerHTML=REPLAY_SPEEDS.map(s=>`<option value="${s}"${s===this.speed?' selected':''}>× ${s}</option>`).join('');
+    const sl=$('#rpSlider');sl.max=String(Math.max(1,Math.round(dur)));sl.value='0';
+    $('#rpDur').textContent=fmtTime(dur*1000);
+    setTimeout(()=>{this.map.invalidateSize();const b=L.latLngBounds([]);P.forEach(p=>p.pts.forEach(q=>b.extend([q[0],q[1]])));if(b.isValid())this.map.fitBounds(b,{padding:[30,30],maxZoom:16});this.seek(this.t0,true)},80);
+    this.btn();
+  },
+  /* position interpolée d'un participant à l'instant t */
+  at(p,t){const a=p.pts,n=a.length;
+    if(t<=a[0][2])return{i:0,ll:[a[0][0],a[0][1]],d:0,pre:true};
+    if(t>=a[n-1][2])return{i:n-1,ll:[a[n-1][0],a[n-1][1]],d:p.cum[n-1],end:true};
+    let lo=0,hi=n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(a[m][2]<=t)lo=m;else hi=m}
+    const f=(t-a[lo][2])/Math.max(1,a[hi][2]-a[lo][2]);
+    return{i:lo,ll:[a[lo][0]+(a[hi][0]-a[lo][0])*f,a[lo][1]+(a[hi][1]-a[lo][1])*f],d:p.cum[lo]+(p.cum[hi]-p.cum[lo])*f}},
+  seek(t,full){
+    this.t=Math.max(this.t0,Math.min(this.t1,t));
+    this.P.forEach(p=>{const r=this.at(p,this.t);
+      if(full||r.i<p.i||!p.lls)p.lls=p.pts.slice(0,r.i+1).map(q=>[q[0],q[1]]);
+      else for(let k=p.i+1;k<=r.i;k++)p.lls.push([p.pts[k][0],p.pts[k][1]]);
+      p.i=r.i;p.cur=r;p.line.setLatLngs(r.pre?[]:p.lls.concat([r.ll]));p.mk.setLatLng(r.ll);p.mk.setOpacity(r.pre?.45:1)});
+    $('#rpClock').textContent=new Date(this.t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    $('#rpEl').textContent='+'+fmtTime(this.t-this.t0);
+    $('#rpSlider').value=String(Math.round((this.t-this.t0)/1000));
+    if(this.follow&&this.follow.cur)this.map.panTo(this.follow.cur.ll,{animate:false});
+    this.chips();
+  },
+  chips(){
+    $('#rpChips').innerHTML=this.P.map((p,k)=>`<button type="button" class="chip wchip${this.follow===p?' on':''}" data-rp="${k}" style="--c:${p.col}"><i></i>${esc(p.name)} · ${fmtKm(p.cur?p.cur.d:0)} km${p.cur&&p.cur.end?' · 🏁':''}</button>`).join('');
+  },
+  setFollow(p){this.follow=this.follow===p?null:p;if(this.follow&&p.cur)this.map.setView(p.cur.ll,Math.max(this.map.getZoom(),15));this.chips()},
+  play(){
+    if(this.t>=this.t1)this.seek(this.t0,true);
+    this.playing=true;this.btn();let last=performance.now();
+    const step=now=>{if(!this.playing)return;const dt=Math.min(250,now-last);last=now;this.seek(this.t+dt*this.speed);
+      if(this.t>=this.t1){this.playing=false;this.btn();return}this.raf=requestAnimationFrame(step)};
+    this.raf=requestAnimationFrame(step);
+  },
+  stop(){this.playing=false;if(this.raf)cancelAnimationFrame(this.raf);this.raf=null;this.btn()},
+  btn(){const b=$('#rpPlay');if(b){b.textContent=this.playing?'⏸ Pause':'▶ Lecture';b.setAttribute('aria-pressed',String(this.playing))}}
+};
+$('#rpPlay').onclick=()=>{if(Replay.playing)Replay.stop();else Replay.play()};
+$('#rpSpeed').onchange=e=>{Replay.speed=+e.target.value||60};
+$('#rpSlider').addEventListener('input',e=>{Replay.seek(Replay.t0+(+e.target.value)*1000)});
+$('#rpChips').addEventListener('click',e=>{const b=e.target.closest('[data-rp]');if(b)Replay.setFollow(Replay.P[+b.dataset.rp])});
+$('#rpBack15').onclick=()=>Replay.seek(Replay.t-Math.max(60000,(Replay.t1-Replay.t0)/40),true);
+$('#rpFwd15').onclick=()=>Replay.seek(Replay.t+Math.max(60000,(Replay.t1-Replay.t0)/40));
+
+/* données à rejouer */
+function thinTrack(tr,max=4000){if(!tr||tr.length<=max)return tr||[];const k=Math.ceil(tr.length/max),o=[];for(let i=0;i<tr.length;i+=k)o.push(tr[i]);if(o[o.length-1]!==tr[tr.length-1])o.push(tr[tr.length-1]);return o}
+function rideReplayData(){
+  const people=[{name:Ride.name,col:'#00E5FF',pts:thinTrack(Ride.shared.length?Ride.shared:Ride.track)}]
+    .concat(Ride.others().map(R=>({name:R.st.name,col:colorOf(R.pid),pts:thinTrack(fullTrackOf(R))})));
+  const routes=[Ride.followRoute()].concat(Object.values(Ride.routes)).filter((r,i,a)=>r&&a.indexOf(r)===i);
+  return{title:Ride.sname||'Sortie',people,routes};
+}
+function summaryReplayData(sm){
+  const me=sm.seg?decTrack(sm.seg):sm.track?decTrack(sm.track):[];
+  const people=[{name:sm.me||'Moi',col:'#00E5FF',pts:me}].concat((sm.others||[]).map(o=>({name:o.n,col:o.c,pts:decTrack(o.t)})));
+  return{title:sm.name,people,routes:sm.route?[decRoute(sm.route)]:[]};
+}
+function watchReplayData(code){
+  const S=Watch.src[code];if(!S)return null;
+  const people=Object.values(S.riders).filter(R=>R.st).map(R=>({name:R.st.name,col:colorOf(R.pid),pts:thinTrack(fullTrackOf(R))}));
+  const routes=Object.values(S.riders).filter(R=>R.st).map(R=>Watch.routeOf(S,R)).filter((r,i,a)=>r&&a.indexOf(r)===i);
+  return{title:Watch.srcName(S),people,routes};
+}
+
 /* ---------------- Démarrage ---------------- */
 applySimUI();Home.render();
 if(!Compass.needsPerm)Compass.enable();
@@ -5474,7 +5794,7 @@ $('#compassBtn').hidden=!Compass.needsPerm;
   if(l){openLink(l);return}
   if(NATIVE&&P.app){try{const r=await P.app.getLaunchUrl();const lc=r&&linkCode(r.url);if(lc){openLink(lc);return}}catch(e){}}
 })();
-window.FollowTrail={GPS,Ride,RideMap,Stats,Chat,Routes,Join,Create,LiveCreate,Watch,WAdd,SessionLink,Mqtt,deriveKey,seal,unseal,newCode,normCode,validCode,fmtCode,parseRouteGPX,makeRoute,routeLocate,encRoute,decRoute,encTrack,decTrack,segments,effortPace,etaInfo,fullTrackOf,effortAt,recentVAM,Voice,settings:()=>settings,store,K,BROKERS};
+window.FollowTrail={GPS,Ride,RideMap,Stats,Chat,Routes,Join,Create,LiveCreate,Watch,WAdd,Replay,PlanEdit,Notify,Summary,planDelta,SessionLink,Mqtt,deriveKey,seal,unseal,newCode,normCode,validCode,fmtCode,parseRouteGPX,makeRoute,routeLocate,encRoute,decRoute,encTrack,decTrack,segments,effortPace,etaInfo,fullTrackOf,effortAt,recentVAM,Voice,settings:()=>settings,store,K,BROKERS};
 
 })();</script>
 </body>

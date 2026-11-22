@@ -7,11 +7,16 @@ Deux usages, sur la même appli :
   - distance, temps, allure actuelle et moyenne, D+ / D−, VAM, km-effort ;
   - un **tableau par tronçons de 1 ou 5 km** : temps, allure et vitesse, D+ / D−, VAM ;
   - avec le GPX du parcours : avancement, dénivelé restant, profil, **arrivée estimée** et heures de passage aux points du GPX (ravitaillements…) ;
+  - en option, un **plan de course** : temps prévus aux points du GPX et à l'arrivée (objectif réparti au prorata des km-effort, chaque point modifiable), avec l'avance ou le retard en direct ;
   - plusieurs coureurs à la fois sur la même carte ;
   - une mini messagerie d'**encouragements** : le coureur les reçoit en notification et **à voix haute**, et répond d'un appui (« 🙏 Merci ! », « 🥤 Au ravito »…).
-- **👥 Group Run** : une sortie en groupe. Chacun voit les autres sur la carte, les stats et tronçons de chacun, les tracés GPX, et le groupe a sa messagerie (avec « 🆘 Besoin d'aide »). Un spectateur peut suivre toute la sortie sans partager sa position.
+- **👥 Group Run** : une sortie en groupe. Chacun voit les autres sur la carte, les stats et tronçons de chacun, les tracés GPX, et le groupe a sa messagerie (avec « 🆘 Besoin d'aide »). Un spectateur peut suivre toute la sortie sans partager sa position. L'organisateur peut être alerté quand quelqu'un quitte le tracé.
 
 Sur ordinateur ou tablette, la carte et la fiche du coureur s'affichent côte à côte.
+
+**▶ Rejouer** : pendant la sortie, à la fin (bilan) ou depuis le suivi, toute la sortie repasse en accéléré avec tout le monde sur la carte.
+
+**Notifications** : messages, alertes SOS (et leur levée) et sorties de tracé arrivent en notification ; la toucher ouvre l'appli au bon endroit. Dans un navigateur, il faut les autoriser et garder la page ouverte en arrière-plan.
 
 ## Installer
 

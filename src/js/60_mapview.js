@@ -67,7 +67,7 @@ const RideMap={map:null,follow:true,mk:{},pl:{},me:null,myPl:null,routesDirty:tr
     if(fr&&pr&&pr.rid===fr.id&&pr.wait)h+=`<span class="chip route">🧭 ${esc(fr.name)} : tracé à ${fmtDist(pr.off)}, rejoins-le</span>`;
     else if(fr&&pr&&pr.rid===fr.id){const off=pr.off>(settings.offDist||50);
       const e=Ride.pe&&!Ride.finT?etaInfo(fr,pr.along,Ride.pe,GPS.last?GPS.last.t:Date.now()):null;
-      h+=`<span class="chip route${off?' off':''}">🧭 ${fmtKm(pr.along)} / ${fmtKm(fr.L)} km${fr.gain!=null&&pr.gainLeft!=null?' · D+ restant '+Math.round(pr.gainLeft)+' m':''}${e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${Ride.finT?' · 🏁 arrivé':''}${off?` · ⚠ hors tracé ${fmtDist(pr.off)}`:''}</span>`}
+      h+=`<span class="chip route${off?' off':''}">🧭 ${fmtKm(pr.along)} / ${fmtKm(fr.L)} km${fr.gain!=null&&pr.gainLeft!=null?' · D+ restant '+Math.round(pr.gainLeft)+' m':''}${e&&e.fin?' · 🏁 ~'+fmtClock(e.fin):''}${hasPlan(fr)&&!Ride.finT?' · '+fmtDelta(planDelta(fr,pr.along,Ride.runStart,GPS.last?GPS.last.t:Date.now()),true):''}${Ride.finT?' · 🏁 arrivé':''}${off?` · ⚠ hors tracé ${fmtDist(pr.off)}`:''}</span>`}
     else if(fr)h+=`<span class="chip route">🧭 ${esc(fr.name)} : en attente du GPS…</span>`;
     else if(Ride.follow)h+=`<span class="chip route">🧭 Tracé en cours de chargement…</span>`;
     $('#rChips').innerHTML=h;
@@ -114,7 +114,7 @@ function riderView(R,routeOf,col){
   const t0=st.t0||st.start,tEnd=st.fin||(st.pos?st.pos.t:now);
   const tiles=statTiles({dist:s.dist||0,mov:s.mov||0,el:st.t0?Math.max(0,tEnd-t0):0,gain:s.gain,loss:s.loss,alt:st.pos?st.pos.alt:null,spd:stale||st.status!=='on'?null:st.pos.spd,vam:stale?null:recentVAM(tr)});
   const r=st.f?routeOf(st):null,pr=st.pr;
-  const rb=r?routeBlock({r,a:pr&&!pr.w?pr.a:null,off:pr?pr.off:null,wait:pr?!!pr.w:false,pe:st.pe,tRef:st.pos?st.pos.t:now,fin:st.fin,t0,dots:pr&&!pr.w?[{a:pr.a,col,title:st.name}]:[]}):'';
+  const rb=r?routeBlock({r,a:pr&&!pr.w?pr.a:null,off:pr?pr.off:null,wait:pr?!!pr.w:false,pe:st.pe,tRef:st.pos?st.pos.t:now,fin:st.fin,t0:st.t0,passed:st.wp,dots:pr&&!pr.w?[{a:pr.a,col,title:st.name}]:[]}):'';
   return{tr,tiles,rb,r};
 }
 /* fiche d'un participant */

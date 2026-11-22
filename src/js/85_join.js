@@ -12,7 +12,7 @@ const Create={routes:[],
   async add(){const rs=await pickGPX(true);this.routes.push(...rs);this.list()},
   async go(){
     const name=$('#cMe').value.trim();if(!name){toast('Indique ton prénom : il s\'affiche sur la carte des autres.',true);$('#cMe').focus();return}
-    store.set(K.me,name);Snd.unlock();Voice.unlock();
+    store.set(K.me,name);Snd.unlock();Voice.unlock();Notify.ask();
     const link=await newLink($('#cGo'));if(!link)return;
     const session={name:$('#cName').value.trim()||'Sortie trail',created:new Date().toISOString(),status:'open'};
     const routes=this.routes.slice();
@@ -63,7 +63,7 @@ const Join={link:null,stream:null,own:null,
   join(){
     const name=$('#jName').value.trim();if(!name){toast('Indique ton prénom : il s\'affiche sur la carte des autres.',true);$('#jName').focus();return}
     if(!this.link){toast('Cherche d\'abord la sortie',true);return}
-    store.set(K.me,name);Snd.unlock();Voice.unlock();
+    store.set(K.me,name);Snd.unlock();Voice.unlock();Notify.ask();
     const v=$('#jRoute').value;let follow=null,own=null;
     if(v.startsWith('org:'))follow={k:'org',id:v.slice(4)};
     if(v==='own'){if(!this.own){toast('Choisis d\'abord ton fichier GPX.',true);this.pickOwn();return}own=this.own;own.owner=null;follow={k:'own'}}

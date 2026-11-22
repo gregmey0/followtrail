@@ -1,4 +1,4 @@
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 const CAP=window.capacitorExports||null;
 const NATIVE=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
 const P=NATIVE&&CAP?{geo:CAP.registerPlugin('BackgroundGeolocation'),fs:CAP.registerPlugin('Filesystem'),share:CAP.registerPlugin('Share'),awake:CAP.registerPlugin('KeepAwake'),tts:CAP.registerPlugin('TextToSpeech'),device:CAP.registerPlugin('Device'),notif:CAP.registerPlugin('LocalNotifications'),app:CAP.registerPlugin('App')}:{};
@@ -21,7 +21,7 @@ const store={
   del(k){try{localStorage.removeItem(k)}catch(e){}}
 };
 const K={settings:'flt.settings.v1',active:'flt.active.v1',last:'flt.last.v1',me:'flt.me.v1',watch:'flt.watch.v1',watcher:'flt.watcher.v1'};
-const DEFAULTS={layer:'ign',showTrails:true,showOthersRoutes:true,offAlert:true,offDist:50,vibrate:true,notif:true,msgSound:true,speak:true,seg:1000,eco:false,sim:false};
+const DEFAULTS={layer:'ign',showTrails:true,showOthersRoutes:true,offAlert:true,offDist:50,vibrate:true,notif:true,msgSound:true,speak:true,seg:1000,eco:false,orgOff:false,sim:false};
 let settings=Object.assign({},DEFAULTS,store.get(K.settings,{}));
 const saveSettings=()=>store.set(K.settings,settings);
 

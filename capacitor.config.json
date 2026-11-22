@@ -14,7 +14,13 @@
     },
     "LocalNotifications": {
       "smallIcon": "ic_stat_followtrail",
-      "iconColor": "#FF8A1F"
+      "iconColor": "#FF8A1F",
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "banner",
+        "list"
+      ]
     }
   },
   "ios": {

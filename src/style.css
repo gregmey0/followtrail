@@ -235,3 +235,31 @@ table.seg tfoot th{text-align:left}
 #watch.wide #wpRun,#watch.wide #wpChat{left:auto;width:min(480px,46vw);border-left:3px solid var(--acc)}
 #watch.wide #wTabs{grid-template-columns:repeat(3,1fr)}
 #watch.wide #wTabs [data-wtab=map]{display:none}
+
+/* plan de course */
+.plandelta{border-radius:12px;padding:.45rem .7rem;border:2px solid var(--line);background:#000;margin:.2rem 0}
+.plandelta.ahead{border-color:var(--ok)}.plandelta.ahead b{color:var(--ok)}
+.plandelta.late{border-color:var(--warn)}.plandelta.late b{color:var(--warn)}
+.wps li.done{opacity:.85;border-style:dashed}
+.wps .wt small{display:block;font-size:.72rem;color:var(--muted);font-weight:400;text-align:right}
+.planbox .pltot{display:flex;gap:.5rem;align-items:flex-end}
+.planbox .pltot label{flex:1}
+.planbox .pltot button{min-height:48px}
+table.plantab td input{width:5.2rem;min-height:40px;font-size:1rem;text-align:center;padding:.2rem}
+table.plantab tr.fin th,table.plantab tr.fin td{border-top:2px solid var(--acc)}
+
+/* rejouer */
+#replay{height:calc(100vh - var(--sat) - var(--sab) - var(--banner,0px));height:calc(100dvh - var(--sat) - var(--sab) - var(--banner,0px));min-height:0;overflow:hidden}
+#replay header.bar .back{min-height:40px;min-width:40px;font-size:1.15rem}
+.rpwrap{position:relative;flex:1;min-height:0}
+#rpMap{position:absolute;inset:0;z-index:0;isolation:isolate}
+.rpctl{background:#000;border-top:3px solid var(--acc);padding:.5rem .7rem .6rem;display:flex;flex-direction:column;gap:.35rem}
+.rptime{display:flex;align-items:baseline;gap:.6rem;font-variant-numeric:tabular-nums}
+.rptime b{font-size:1.5rem;color:var(--acc)}
+.rptime span{color:#ddd}.rptime .rpdur{color:var(--muted)}
+#rpSlider{width:100%;accent-color:var(--acc);min-height:36px}
+.rpbtns{display:flex;gap:.45rem;align-items:center}
+.rpbtns>button{min-height:48px;padding:0 .9rem}
+.rpbtns #rpPlay{flex:1}
+.rpspeed{display:flex;flex-direction:column;font-size:.75rem;color:var(--muted)}
+.rpspeed select{min-height:40px;font-size:1rem}
