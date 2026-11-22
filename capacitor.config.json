@@ -16,5 +16,9 @@
       "smallIcon": "ic_stat_followtrail",
       "iconColor": "#FF8A1F"
     }
+  },
+  "ios": {
+    "backgroundColor": "#0b0d0b",
+    "contentInset": "never"
   }
 }

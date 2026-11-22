@@ -118,7 +118,7 @@ function download(name,text,mime){
 async function nativeWrite(directory,path,text){const r=await P.fs.writeFile({path,data:text,directory,encoding:'utf8',recursive:true});return r.uri}
 async function saveFile(name,text,mime='application/gpx+xml'){
   if(!NATIVE){download(name,text,mime);toast('Fichier téléchargé : '+name);return}
-  try{await nativeWrite('DOCUMENTS','FollowTrail/'+name,text);toast('Enregistré dans Documents › FollowTrail : '+name)}
+  try{await nativeWrite('DOCUMENTS','FollowTrail/'+name,text);toast(PLATFORM==='ios'?'Enregistré dans Fichiers › Sur mon iPhone › Follow Trail : '+name:'Enregistré dans Documents › FollowTrail : '+name)}
   catch(e){toast('Enregistrement impossible ici : utilise « Partager ».',true)}
 }
 async function shareFile(name,text,mime='application/gpx+xml'){

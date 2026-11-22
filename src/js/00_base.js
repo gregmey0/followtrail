@@ -1,9 +1,11 @@
 const VERSION='1.0.0';
 const CAP=window.capacitorExports||null;
 const NATIVE=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
-const P=NATIVE&&CAP?{geo:CAP.registerPlugin('BackgroundGeolocation'),fs:CAP.registerPlugin('Filesystem'),share:CAP.registerPlugin('Share'),awake:CAP.registerPlugin('KeepAwake'),tts:CAP.registerPlugin('TextToSpeech'),notif:CAP.registerPlugin('LocalNotifications'),app:CAP.registerPlugin('App')}:{};
+const P=NATIVE&&CAP?{geo:CAP.registerPlugin('BackgroundGeolocation'),fs:CAP.registerPlugin('Filesystem'),share:CAP.registerPlugin('Share'),awake:CAP.registerPlugin('KeepAwake'),tts:CAP.registerPlugin('TextToSpeech'),device:CAP.registerPlugin('Device'),notif:CAP.registerPlugin('LocalNotifications'),app:CAP.registerPlugin('App')}:{};
 const ANDROID=/Android/i.test(navigator.userAgent);
 const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+/* plateforme de l'appli : 'android', 'ios' ou 'web' */
+const PLATFORM=NATIVE?(window.Capacitor.getPlatform&&window.Capacitor.getPlatform())||'android':'web';
 const STANDALONE=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
 document.documentElement.classList.add(NATIVE?'native':'web');if(IOS)document.documentElement.classList.add('ios');
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -109,8 +111,11 @@ const Voice={v:null,log:[],
   }
 };
 Voice.init();
+/* niveau de batterie, montré à ceux qui suivent : plugin Device dans l'appli (iPhone compris), API du navigateur sinon */
 const Battery={level:null,
-  async init(){try{if(navigator.getBattery){const b=await navigator.getBattery();const u=()=>{this.level=Math.round(b.level*100)};u();b.addEventListener('levelchange',u)}}catch(e){}}
+  async init(){
+    if(NATIVE&&P.device){const u=async()=>{try{const b=await P.device.getBatteryInfo();if(b&&b.batteryLevel!=null&&b.batteryLevel>=0)this.level=Math.round(b.batteryLevel*100)}catch(e){}};u();setInterval(u,60000);return}
+    try{if(navigator.getBattery){const b=await navigator.getBattery();const u=()=>{this.level=Math.round(b.level*100)};u();b.addEventListener('levelchange',u)}}catch(e){}}
 };
 Battery.init();
 
@@ -166,7 +171,7 @@ async function ensureNotifPermission(){
 let locAsked=false;
 async function askLocationSettings(){
   if(locAsked)return;locAsked=true;
-  const v=await modal({title:'Localisation refusée',body:"<p>Follow Trail a besoin de la position GPS pour la partager. Autorise la localisation « précise », et « toujours » si Android le propose.</p>",buttons:[{label:'Ouvrir les réglages',value:true,primary:true},{label:'Plus tard',value:false}]});
+  const v=await modal({title:'Localisation refusée',body:`<p>Follow Trail a besoin de la position GPS pour la partager. ${PLATFORM==='ios'?'Dans Réglages › Follow Trail › Position, choisis « Toujours » et active « Position exacte ».':'Autorise la localisation « précise », et « toujours » si Android le propose.'}</p>`,buttons:[{label:'Ouvrir les réglages',value:true,primary:true},{label:'Plus tard',value:false}]});
   if(v)P.geo.openSettings().catch(()=>{});setTimeout(()=>locAsked=false,30000);
 }
 function gpsBadge(el,f){

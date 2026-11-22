@@ -2,7 +2,7 @@
   "name": "followtrail",
   "version": "1.0.0",
   "private": true,
-  "description": "Follow Trail – course à pied et trail : Group Run (sortie en groupe) et partage de course en direct pour la famille et les amis (web + Android)",
+  "description": "Follow Trail – course à pied et trail : Group Run (sortie en groupe) et partage de course en direct pour la famille et les amis (web, Android, iPhone)",
   "scripts": {
     "build:web": "python3 build.py"
   },
@@ -13,7 +13,9 @@
     "@capacitor/android": "8.6.2",
     "@capacitor/app": "8.1.2",
     "@capacitor/core": "8.6.2",
+    "@capacitor/device": "^8.0.3",
     "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "^8.6.2",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/share": "8.0.3",
     "@fontsource/atkinson-hyperlegible": "5.2.6",

@@ -97,7 +97,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       pe:this.pe||undefined,fin:this.finT||undefined,
       f:this.follow&&fr?{k:this.follow.k,id:this.follow.k==='org'?this.follow.id:null,name:fr.name,L:Math.round(fr.L)}:null,
       pr:pr&&fr&&pr.rid===fr.id?{a:Math.round(pr.along),L:Math.round(pr.L),off:Math.round(pr.off),gl:pr.gainLeft!=null?Math.round(pr.gainLeft):null,w:pr.wait?1:undefined}:null,
-      sos:this.sos&&now-this.sos<SOS_MS?this.sos:null,bat:Battery.level,app:NATIVE?'android':'web',upd:now};
+      sos:this.sos&&now-this.sos<SOS_MS?this.sos:null,bat:Battery.level,app:PLATFORM,upd:now};
   },
   publish(force){
     if(!this.on||!this.ready)return;const now=Date.now();if(!force&&now-this.lastPub<(this.eco?30000:5000))return;this.lastPub=now;

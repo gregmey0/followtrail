@@ -16,6 +16,7 @@ Sur ordinateur ou tablette, la carte et la fiche du coureur s'affichent côte à
 ## Installer
 
 - **Android** : télécharger [FollowTrail.apk](../../releases/latest/download/FollowTrail.apk) depuis le téléphone, l'ouvrir et autoriser l'installation. Le partage continue téléphone verrouillé, et les messages sont lus à voix haute.
+- **iPhone (application)** : compilée sur un Mac de GitHub, envoyée sur TestFlight une fois le compte Apple relié. Marche à suivre dans [IOS.md](IOS.md).
 - **Web (tout téléphone, iPhone compris)** : https://gregmey0.github.io/followtrail/ puis « Installer l'appli » / « Sur l'écran d'accueil ». Pour partager sa position depuis le navigateur, garder l'écran allumé. Pour suivre quelqu'un, aucune contrainte.
 
 ## Calculs
@@ -33,6 +34,7 @@ Les échanges passent par un relais MQTT public (HiveMQ, à défaut EMQX). Tout 
 - Sources : `src/js/*.js` (modules concaténés dans l'ordre), `src/style.css`, `src/body.html`, icônes générées par `src/icons/gen_icon.py`.
 - `python3 build.py` produit `docs/` (version web, GitHub Pages) et `www/` (contenu de l'appli).
 - Android : projet Capacitor dans `android/`, identifiant `io.github.gregmey0.followtrail`. Chaque push sur `main` compile l'APK (GitHub Actions) et le publie dans **Releases**.
+- iOS : projet Capacitor dans `ios/` (Swift Package Manager, pas de CocoaPods), même identifiant. Chaque push compile l'appli sur un Mac de GitHub, la lance dans le simulateur (captures sur la branche `ci-ios`) et, si les secrets Apple sont présents, l'envoie sur TestFlight. Voir [IOS.md](IOS.md).
 - La clé `android/app/followtrail-sideload.jks` est volontairement publique : elle sert seulement à ce que chaque nouvelle version s'installe par-dessus la précédente. Une publication sur le Play Store demandera une clé privée.
 - Mode simulation (Réglages) pour tester sans bouger. Pour les tests automatiques, `localStorage['flt.testbroker']` peut désigner un relais local (`ws://localhost:8883`).
 

@@ -69,5 +69,17 @@ if __name__ == "__main__":
         ic = big.resize((s, s), Image.LANCZOS)
         canvas.paste(ic, ((w - s) // 2, (h - s) // 2), ic)
         canvas.save(f)
+    # iOS : icône 1024 sans transparence (iOS arrondit lui-même les coins), écran de lancement noir avec l'icône au centre
+    IOS = HERE.parent.parent / "ios" / "App" / "App" / "Assets.xcassets"
+    if IOS.exists():
+        render(tmp / "web.svg", tmp / "ios.png", 1024)
+        Image.open(tmp / "ios.png").convert("RGB").save(IOS / "AppIcon.appiconset" / "AppIcon-512@2x.png")
+        for f in (IOS / "Splash.imageset").glob("splash-*.png"):
+            w, h = Image.open(f).size
+            s = int(min(w, h) * 0.15)
+            canvas = Image.new("RGB", (w, h), (11, 13, 11))
+            ic = big.resize((s, s), Image.LANCZOS)
+            canvas.paste(ic, ((w - s) // 2, (h - s) // 2), ic)
+            canvas.save(f)
     shutil.rmtree(tmp)
     print("icônes générées")

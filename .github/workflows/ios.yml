@@ -1,0 +1,136 @@
+name: Application iPhone (iOS)
+
+# Compile l'appli iPhone sur un Mac de GitHub (gratuit pour un dépôt public).
+# Sans clés Apple : compilation de vérification + lancement dans le simulateur iPhone, avec captures d'écran.
+# Avec les 4 secrets Apple (voir IOS.md) : en plus, signature et envoi sur TestFlight.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-build
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      HAS_APPLE_KEYS: ${{ secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER_ID != '' && secrets.ASC_KEY_P8 != '' && secrets.APPLE_TEAM_ID != '' }}
+      BUNDLE_ID: io.github.gregmey0.followtrail
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Choisir le Xcode le plus récent
+        shell: bash
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          [ -n "$X" ] && sudo xcode-select -s "$X"
+          xcodebuild -version
+
+      - name: Préparer l'appli (web + projet iOS)
+        shell: bash
+        run: |
+          set -o pipefail
+          { npm ci && python3 build.py && npx cap sync ios; } 2>&1 | tee build.log
+
+      - name: Compiler pour le simulateur iPhone
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO build 2>&1 | tee -a build.log | grep -E "error:|warning: .*Info.plist|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/sim/Build/Products/Debug-iphonesimulator/App.app
+
+      - name: Compiler pour un vrai iPhone (sans signature, vérification)
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/dev CODE_SIGNING_ALLOWED=NO build 2>&1 | tee -a build.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/dev/Build/Products/Release-iphoneos/App.app
+
+      - name: Lancer dans le simulateur et faire des captures
+        shell: bash
+        run: |
+          set -x
+          mkdir -p shots
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[(r,x) for r,l in d.items() if 'iOS' in r for x in l if x['name'].startswith('iPhone')]
+          c.sort(key=lambda t:t[0])
+          print(c[-1][1]['udid'] if c else '')")
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 || true
+          xcrun simctl install "$UDID" build/sim/Build/Products/Debug-iphonesimulator/App.app
+          xcrun simctl privacy "$UDID" grant location-always "$BUNDLE_ID" || true
+          xcrun simctl privacy "$UDID" grant notifications "$BUNDLE_ID" || true
+          xcrun simctl location "$UDID" set 44.1240,5.1800 || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 20
+          xcrun simctl io "$UDID" screenshot shots/1-accueil.png
+          xcrun simctl openurl "$UDID" "followtrail://live-110000000000"
+          sleep 8
+          xcrun simctl io "$UDID" screenshot shots/2-lien-de-suivi.png
+          xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'process == "App"' 2>/dev/null | grep -iE "error|⚡️|exception" | tail -40 > shots/journal.txt || true
+          xcrun simctl shutdown "$UDID" || true
+
+      - name: Envoyer sur TestFlight
+        if: env.HAS_APPLE_KEYS == 'true'
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          KEY=$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY"
+          VER=$(node -p "require('./package.json').version")
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/App.xcarchive archive \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$VER" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            "${AUTH[@]}" 2>&1 | tee -a build.log | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)"
+          cat > build/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export "${AUTH[@]}" 2>&1 | tee -a build.log | grep -E "error:|Upload|EXPORT (SUCCEEDED|FAILED)"
+          rm -f "$KEY"
+          echo "Version $VER (compilation ${{ github.run_number }}) envoyée sur TestFlight." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publier les captures (branche ci-ios)
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/ci && cp -R shots/. /tmp/ci/ 2>/dev/null || true
+          { echo "Compilation iOS ${{ github.run_number }} – commit ${{ github.sha }} – $(xcodebuild -version | head -1)"; tail -n 300 build.log 2>/dev/null; } > /tmp/ci/build.log
+          cd /tmp/ci && git init -q && git checkout -q -b ci-ios
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "iOS : captures et journal, compilation ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-ios
