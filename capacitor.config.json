@@ -1,0 +1,20 @@
+{
+  "appId": "io.github.gregmey0.followtrail",
+  "appName": "Follow Trail",
+  "webDir": "www",
+  "android": {
+    "useLegacyBridge": true,
+    "backgroundColor": "#0b0d0b"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "initialViewportFitValueHint": "cover"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_followtrail",
+      "iconColor": "#FF8A1F"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Follow Trail</string>
+    <string name="title_activity_main">Follow Trail</string>
+    <string name="package_name">io.github.gregmey0.followtrail</string>
+    <string name="custom_url_scheme">io.github.gregmey0.followtrail</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Partage de position</string>
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_stat_followtrail</string>
+    <string name="capacitor_background_geolocation_notification_color">#FF8A1F</string>
+</resources>

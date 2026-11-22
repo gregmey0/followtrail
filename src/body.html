@@ -1,0 +1,253 @@
+<div id="simBanner" class="simbanner" hidden>MODE SIMULATION (position fictive)</div>
+
+<!-- ACCUEIL -->
+<section id="home" class="screen active">
+  <main class="home">
+    <div class="brand">
+      <img src="icon.svg" width="78" height="78" alt="" class="logo">
+      <div><h1 tabindex="-1">Follow Trail</h1><p>Courir ensemble, être suivi en direct</p></div>
+    </div>
+    <div id="homeWarn"></div>
+    <div id="homeExtra"></div>
+    <button type="button" class="primary big" id="hGroup">👥 Group Run<small>sortie en groupe : chacun voit les autres sur la carte</small></button>
+    <button type="button" class="primary big alt" id="hLive">📡 Partager ma course<small>famille et amis te suivent en direct et t'encouragent</small></button>
+    <button type="button" class="big" id="hFollow">👀 Suivre un coureur<small>avec le lien, le QR code ou le code reçu</small></button>
+    <div class="row"><button type="button" id="hSettings">⚙ Réglages</button><button type="button" id="hHelp">❓ Aide</button></div>
+    <button type="button" id="hInstall" hidden>📲 Installer l'appli sur ce téléphone</button>
+    <p class="sign" id="hVersion"></p>
+  </main>
+</section>
+
+<!-- GROUP RUN -->
+<section id="group" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Group Run</h1></header>
+  <main>
+    <p>Une sortie à plusieurs : chacun voit la position des autres sur la carte, les stats de chacun, les tracés GPX, et le groupe a sa messagerie.</p>
+    <button type="button" class="primary big" id="gCreate">➕ Créer une sortie<small>tu invites le groupe par lien, QR code ou code</small></button>
+    <button type="button" class="big" id="gJoin">🔗 Rejoindre une sortie<small>avec le lien, le QR code ou le code reçu</small></button>
+  </main>
+</section>
+
+<!-- PARTAGER MA COURSE -->
+<section id="live" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Partager ma course</h1></header>
+  <main>
+    <section class="card">
+      <label>Nom de la course<input type="text" id="lName" maxlength="80"></label>
+      <label>Ton prénom (affiché chez ceux qui te suivent)<input type="text" id="lMe" autocomplete="given-name" maxlength="30" placeholder="Prénom"></label>
+    </section>
+    <section class="card">
+      <h2>GPX du parcours (conseillé)</h2>
+      <p class="hint">Avec le GPX, ceux qui te suivent voient ton avancement, le dénivelé restant, ton <b>arrivée estimée</b> et tes heures de passage aux points du GPX (ravitaillements…). Tu pourras aussi l'ajouter pendant la course.</p>
+      <ul id="lRoute" class="rlist"></ul>
+      <button type="button" id="lAddGpx">📂 Choisir le GPX</button>
+    </section>
+    <section class="card">
+      <label class="chk"><input type="checkbox" id="lEco"> Mode économie (ultra) : position envoyée toutes les 30 s au lieu de 5 s</label>
+    </section>
+    <button type="button" class="primary big" id="lGo">📡 Démarrer le partage</button>
+    <p class="hint">Tu obtiens un lien à envoyer (SMS, WhatsApp…). Il s'ouvre dans un simple navigateur. Les encouragements reçus sont lus à voix haute. Sur la ligne de départ, « ↺ Remettre à zéro » efface le trajet d'approche.</p>
+  </main>
+</section>
+
+<!-- SUIVRE UN COUREUR -->
+<section id="wadd" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Suivre un coureur</h1></header>
+  <main>
+    <p>Le plus simple : ouvre le <b>lien</b> que le coureur t'a envoyé. Sinon, tape son code ou colle le lien ici.</p>
+    <label>Code ou lien<input type="text" id="waCode" autocomplete="off" spellcheck="false" placeholder="148 291 355 720" maxlength="300"></label>
+    <div class="row"><button type="button" class="primary" id="waGo">👀 Suivre</button><button type="button" id="waScan" hidden>📷 Scanner le QR</button></div>
+    <video id="waVideo" playsinline muted hidden></video>
+    <p class="hint">Tu peux suivre plusieurs coureurs à la fois, sur la même carte. Un code de sortie Group Run marche aussi : tu suis tout le groupe, sans partager ta position.</p>
+  </main>
+</section>
+
+<!-- SUIVI -->
+<section id="watch" class="screen">
+  <header class="bar ridebar"><button type="button" class="back" data-back aria-label="Accueil">←</button><h1 id="wTitle">Suivi</h1><span id="wNet" class="net" title="Relais">📡</span></header>
+  <div id="wName" class="namebar" hidden><label>Ton prénom, pour que le coureur sache qui le suit<input type="text" id="wNameIn" autocomplete="given-name" maxlength="30" placeholder="Prénom"></label><button type="button" class="primary" id="wNameOk">OK</button></div>
+  <div id="wSos" class="sosban" hidden></div>
+  <div class="panes">
+    <div id="wpMap" class="pane active">
+      <div id="wMap"></div>
+      <div id="wChips" class="chips wchips" aria-live="polite"></div>
+      <div class="mapbtns">
+        <button type="button" id="wAll" aria-label="Voir tout le monde" title="Tout le monde">👥</button>
+        <button type="button" id="wTrail" class="on" aria-label="Positions seules ou positions et traces" title="Traces">〰</button>
+        <button type="button" id="wLayers" aria-label="Fond de carte" title="Fond de carte">🗂</button>
+      </div>
+    </div>
+    <div id="wpRun" class="pane scroll"><main id="wRunBody"></main></div>
+    <div id="wpChat" class="pane chat">
+      <div id="wChatSrc" class="srcchips"></div>
+      <ul id="wChatList" class="chatlist" aria-live="polite"></ul>
+      <div id="wQuick" class="quick"></div>
+      <form id="wChatForm" class="chatform" autocomplete="off"><input type="text" id="wChatIn" maxlength="300" placeholder="Un mot d'encouragement…" enterkeyhint="send" aria-label="Message d'encouragement"><button type="submit" class="primary" aria-label="Envoyer">➤</button></form>
+    </div>
+  </div>
+  <nav class="tabs" id="wTabs">
+    <button type="button" data-wtab="map" aria-pressed="true">🗺<small>Carte</small></button>
+    <button type="button" data-wtab="run" aria-pressed="false">🏃<small>Coureurs</small></button>
+    <button type="button" data-wtab="chat" aria-pressed="false">📣<small>Encourager</small><span id="wBadge" class="badge" hidden></span></button>
+    <button type="button" id="wMenu">☰<small>Menu</small></button>
+  </nav>
+</section>
+
+<!-- CRÉER -->
+<section id="create" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Créer une sortie</h1></header>
+  <main>
+    <section class="card">
+      <label>Nom de la sortie<input type="text" id="cName" maxlength="80"></label>
+      <label>Ton prénom (visible par le groupe)<input type="text" id="cMe" autocomplete="given-name" maxlength="30" placeholder="Prénom"></label>
+    </section>
+    <section class="card">
+      <h2>Tracés proposés (facultatif)</h2>
+      <p class="hint">Les GPX des parcours prévus : chacun choisit celui qu'il suit. Tu pourras aussi en ajouter pendant la sortie.</p>
+      <ul id="cRoutes" class="rlist"></ul>
+      <button type="button" id="cAddGpx">📂 Ajouter des GPX</button>
+    </section>
+    <button type="button" class="primary big" id="cGo">📡 Créer la sortie</button>
+    <p class="hint">Tu deviens l'organisateur : tu invites le groupe, tu proposes les tracés et tu termines la sortie pour tous.</p>
+  </main>
+</section>
+
+<!-- REJOINDRE -->
+<section id="join" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Rejoindre une sortie</h1></header>
+  <main>
+    <label>Code de la sortie (12 chiffres)
+      <input type="text" id="jCode" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="148 291 355 720" maxlength="24"></label>
+    <div class="row"><button type="button" class="primary" id="jLookup">🔎 Chercher</button><button type="button" id="jScan" hidden>📷 Scanner le QR</button></div>
+    <button type="button" class="ok big" id="jApp" hidden>📱 Ouvrir dans l'application</button>
+    <p class="hint" id="jAppNo" hidden>L'application n'est pas installée sur ce téléphone : tu peux continuer ici, dans le navigateur (écran allumé), ou <a href="https://github.com/gregmey0/followtrail/releases/latest/download/FollowTrail.apk">installer l'application</a>.</p>
+    <video id="jVideo" playsinline muted hidden></video>
+    <div id="jInfo"></div>
+    <div id="jConfirm" class="card" hidden>
+      <label>Ton prénom (visible par le groupe)<input type="text" id="jName" autocomplete="given-name" maxlength="30" placeholder="Prénom"></label>
+      <label>Tracé que tu suis<select id="jRoute"></select></label>
+      <p class="hint" id="jOwn"></p>
+      <button type="button" class="primary big" id="jGo">✔ Rejoindre la sortie</button>
+    </div>
+  </main>
+</section>
+
+<!-- SORTIE EN COURS -->
+<section id="ride" class="screen">
+  <header class="bar ridebar">
+    <h1 id="rTitle">Sortie</h1><span id="rCount" class="cnt">👥 1</span><span id="rGps" class="gps none">GPS…</span><span id="rNet" class="net" title="Relais">📡</span>
+  </header>
+  <div id="rSos" class="sosban" hidden></div>
+  <div class="panes">
+    <div id="pMap" class="pane active">
+      <div id="rMap"></div>
+      <div id="rChips" class="chips" aria-live="polite"></div>
+      <div class="mapbtns">
+        <button type="button" id="mMe" aria-label="Me suivre sur la carte" title="Me suivre">🎯</button>
+        <button type="button" id="mAll" aria-label="Voir tout le groupe" title="Tout le groupe">👥</button>
+        <button type="button" id="mTrail" aria-label="Positions seules ou positions et traces" title="Traces">〰</button>
+        <button type="button" id="mLayers" aria-label="Fond de carte et affichage" title="Fond de carte">🗂</button>
+        <button type="button" id="mRoutes" aria-label="Tracés GPX" title="Tracés">🧭</button>
+      </div>
+      <div id="rSimPad" class="simpad"></div>
+    </div>
+    <div id="pStats" class="pane scroll"><main id="statsBody"></main></div>
+    <div id="pChat" class="pane chat">
+      <ul id="chatList" class="chatlist" aria-live="polite"></ul>
+      <div id="chatQuick" class="quick"></div>
+      <form id="chatForm" class="chatform" autocomplete="off"><input type="text" id="chatIn" maxlength="500" placeholder="Message au groupe…" enterkeyhint="send" aria-label="Message au groupe"><button type="submit" class="primary" aria-label="Envoyer">➤</button></form>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button type="button" data-tab="map" aria-pressed="true">🗺<small>Carte</small></button>
+    <button type="button" data-tab="stats" aria-pressed="false">📊<small id="tabStatsL">Stats</small></button>
+    <button type="button" data-tab="chat" aria-pressed="false">💬<small>Messages</small><span id="rBadge" class="badge" hidden></span></button>
+    <button type="button" id="rMenu">☰<small>Menu</small></button>
+  </nav>
+</section>
+
+<!-- RÉGLAGES -->
+<section id="settings" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Réglages</h1></header>
+  <main id="settingsBox">
+    <section class="card">
+      <h2>Carte</h2>
+      <label>Fond de carte<select id="setLayer" data-s="layer"></select></label>
+      <label class="chk"><input type="checkbox" data-s="showTrails"> Afficher les traces parcourues (sinon positions seules)</label>
+      <label class="chk"><input type="checkbox" data-s="showOthersRoutes"> Afficher les tracés GPX personnels des autres</label>
+      <button type="button" id="compassBtn" hidden>🧭 Autoriser la boussole (iPhone)</button>
+    </section>
+    <section class="card">
+      <h2>Tracé suivi</h2>
+      <label class="chk"><input type="checkbox" data-s="offAlert"> Alerte quand je m'écarte du tracé</label>
+      <label>Écart avant l'alerte<select data-s="offDist" data-num><option value="30">30 m</option><option value="50">50 m</option><option value="100">100 m</option><option value="200">200 m</option></select></label>
+    </section>
+    <section class="card">
+      <h2>Messages et alertes</h2>
+      <label class="chk"><input type="checkbox" data-s="speak"> Lire les messages reçus à voix haute (encouragements, groupe)</label>
+      <label class="chk"><input type="checkbox" data-s="msgSound"> Son à l'arrivée d'un message</label>
+      <label class="chk"><input type="checkbox" data-s="vibrate"> Vibrations</label>
+      <label class="chk native-only"><input type="checkbox" data-s="notif"> Notification des messages téléphone verrouillé</label>
+    </section>
+    <section class="card">
+      <h2>Essai</h2>
+      <label class="chk"><input type="checkbox" data-s="sim"> Mode simulation (position fictive, pour tester chez soi)</label>
+      <p class="hint">En simulation, des flèches sous la carte déplacent ta position ; « 🏃 Courir » avance tout seul à 11 km/h.</p>
+    </section>
+  </main>
+</section>
+
+<!-- AIDE -->
+<section id="help" class="screen">
+  <header class="bar"><button type="button" class="back" data-back aria-label="Retour">←</button><h1 tabindex="-1">Aide</h1></header>
+  <main class="help">
+    <h2>📡 Partager ma course</h2>
+    <ol>
+      <li>Indique le nom de la course et ton prénom, choisis si possible le <b>GPX du parcours</b>, puis <b>Démarrer le partage</b>.</li>
+      <li>Envoie le <b>lien</b> (SMS, WhatsApp…). Ceux qui le reçoivent l'ouvrent dans un simple navigateur, sans rien installer.</li>
+      <li>Sur la ligne de départ : ☰ Menu › <b>Remettre les compteurs à zéro</b> si tu as partagé pendant le trajet.</li>
+      <li>Les <b>encouragements</b> arrivent en notification et sont <b>lus à voix haute</b>. Réponds d'un appui avec les messages rapides (« 🙏 Merci ! », « 🥤 Au ravito »…).</li>
+      <li>À l'arrivée : ☰ Menu › <b>Terminer le partage</b>. Ceux qui te suivent voient ton bilan.</li>
+    </ol>
+    <h2>👀 Suivre un coureur</h2>
+    <ul>
+      <li>Ouvre le lien reçu, ou ajoute le code dans <b>Suivre un coureur</b>. Tu peux suivre <b>plusieurs coureurs</b> sur la même carte.</li>
+      <li><b>🏃 Coureurs</b> : position, allure, dénivelé, VAM, le <b>tableau par tronçons</b> de 1 ou 5 km, et avec le GPX l'<b>arrivée estimée</b> et les heures de passage aux points du parcours.</li>
+      <li><b>📣 Encourager</b> : messages rapides ou texte libre, signés de ton prénom.</li>
+      <li>Sur ordinateur ou tablette, la carte et la fiche du coureur s'affichent côte à côte.</li>
+    </ul>
+    <h2>Arrivée estimée</h2>
+    <p>Elle utilise les <b>km-effort</b> : 1 km + 1 km par 100 m de D+. L'allure par km-effort mélange les 10 derniers km-effort (60 %) et la course depuis le départ (40 %), pauses comprises. Elle se calcule après 2 km-effort sur le tracé et s'affine ensuite.</p>
+    <h2>Tronçons</h2>
+    <p>Pour chaque kilomètre (ou 5 km) : temps, allure et vitesse, D+ et D−, et <b>VAM</b> (mètres de D+ par heure). Le plus rapide est en vert, le plus lent en rouge. Avec un GPX suivi, l'altitude vient du tracé, plus juste que le GPS.</p>
+    <h2>👥 Group Run</h2>
+    <ul>
+      <li>L'organisateur crée la sortie et invite par QR code, lien ou code à 12 chiffres. Chacun voit tout le groupe sur la carte, les stats et tronçons de chacun, et la messagerie.</li>
+      <li>L'organisateur peut proposer des tracés GPX, chacun peut aussi importer le sien. « 🆘 Besoin d'aide » alerte tout le monde.</li>
+    </ul>
+    <h2>Téléphone verrouillé</h2>
+    <ul>
+      <li><b>Appli Android</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute.</li>
+      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte.</li>
+      <li>En zone blanche, tout repart dès le retour du réseau : la trace complète est renvoyée.</li>
+      <li>Course longue : le <b>mode économie</b> envoie la position toutes les 30 s.</li>
+    </ul>
+    <h2>Confidentialité</h2>
+    <p>Positions, traces et messages passent par un relais public (HiveMQ, à défaut EMQX). Ils sont chiffrés de bout en bout avec une clé tirée du code : sans le lien ou le code, rien n'est lisible. En fin de course ou de sortie, les données sont effacées du relais (pour une course, seul le bilan final reste lisible par ceux qui ont le lien).</p>
+  </main>
+</section>
+
+<div id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <header class="bar"><h1 id="sheetTitle" tabindex="-1"></h1><button type="button" class="primary sheetClose">✔ Fermer</button></header>
+  <main id="sheetBody"></main>
+</div>
+<div id="toast" role="status"></div>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="box">
+    <h2 id="modalTitle" tabindex="-1"></h2>
+    <div id="modalBody"></div>
+    <input type="text" id="modalInput" autocomplete="off">
+    <div id="modalBtns"></div>
+  </div>
+</div>
+<input type="file" id="gpxInput" hidden>
