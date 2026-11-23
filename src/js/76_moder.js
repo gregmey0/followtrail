@@ -24,8 +24,8 @@ const Moder={
     if(v==='report')this.report(m);
     return v;
   },
-  block(m){const l=this.blocked().filter(b=>b.pid!==m.pid);l.push({pid:m.pid,name:String(m.name||'?').slice(0,30)});settings.blocked=l.slice(-200);saveSettings()},
-  unblock(pid){settings.blocked=this.blocked().filter(b=>b.pid!==pid);saveSettings();if(Ride.on&&Ride.isOrg)Ride.unblockForAll(pid)},
+  block(m){const l=this.blocked().filter(b=>b.pid!==m.pid);l.push({pid:m.pid,name:String(m.name||'?').slice(0,30)});settings.blocked=l.slice(-200);saveSettings();Push.syncBlocked()},
+  unblock(pid){settings.blocked=this.blocked().filter(b=>b.pid!==pid);saveSettings();Push.syncBlocked();if(Ride.on&&Ride.isOrg)Ride.unblockForAll(pid)},
   report(m){
     const body=`Message signalé dans Follow Trail\nAuteur : ${m.name}\nHeure : ${new Date(m.t).toLocaleString('fr-FR')}\nTexte : ${m.text}\n`;
     const url=CONTACT?`mailto:${CONTACT}?subject=${encodeURIComponent('Signalement Follow Trail')}&body=${encodeURIComponent(body)}`

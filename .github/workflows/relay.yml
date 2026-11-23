@@ -1,0 +1,44 @@
+# Déploie le relais Follow Trail (relay/) sur Cloudflare Workers, offre gratuite.
+# Secrets du dépôt à créer une fois : CLOUDFLARE_API_TOKEN (modèle « Modifier les Cloudflare Workers ») et CLOUDFLARE_ACCOUNT_ID.
+# Sans ces secrets, le déploiement est simplement sauté.
+name: Relais Cloudflare
+on:
+  push:
+    branches: [main]
+    paths: ['relay/**', '.github/workflows/relay.yml']
+  workflow_dispatch:
+concurrency: relay
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Secrets Cloudflare présents ?
+        id: s
+        env:
+          T: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$T" ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "::notice::Secrets Cloudflare absents : déploiement du relais sauté"; fi
+      - uses: actions/setup-node@v4
+        if: steps.s.outputs.ok
+        with:
+          node-version: 22
+      - name: Déployer
+        if: steps.s.outputs.ok
+        working-directory: relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm ci --no-audit --no-fund
+          npx wrangler deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          test -n "$URL" || { echo "::error::Adresse du relais introuvable : as-tu choisi un sous-domaine workers.dev dans le tableau de bord ?"; exit 1; }
+          echo "RELAY_URL=$URL" >> "$GITHUB_ENV"
+          echo "### Relais en ligne : $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Adresse pour l'appli : ${URL/https:/wss:}/mqtt" >> "$GITHUB_STEP_SUMMARY"
+      - name: Vérifier
+        if: steps.s.outputs.ok
+        run: |
+          for i in 1 2 3 4 5 6; do curl -fsS "$RELAY_URL/health" && break; sleep 10; done
+          curl -fsS "$RELAY_URL/vapid"; echo

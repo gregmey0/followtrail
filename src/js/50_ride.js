@@ -56,11 +56,13 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     ['/p/+','/t/+/+','/r/+','/m/+','/route/+','/w/+'].forEach(t=>this.m.subscribe(this.base+t));
     if(!this.ready)setTimeout(()=>{if(this.on&&!this.ready){this.ready=true;this.publishAll()}},5000);
     GPS.start();this.unsub=GPS.on(f=>this.onFix(f));Wake.on();Voice.unlock();
+    if(!NATIVE&&!a.resume)setTimeout(()=>{if(this.on)toast('Dans le navigateur, l\'écran doit rester allumé pour le GPS : ☰ Menu › 🌑 Mode poche le garde noir.')},4000);
     this.tickI=setInterval(()=>this.tick(),1000);
     clearInterval(this.expI);this.expI=setInterval(()=>this.checkExpiry(),600000);setTimeout(()=>this.checkExpiry(),20000);
     RideMap.reset();show('ride');this.setTab('map');
     if(this.link.session&&!this.isOrg)this.onSession(this.link.session);
     if(this.m.connected)this.onNet(true);
+    if(Notify.state()==='granted')Push.register(link,'r',this.pid);
     this.save();this.renderHead();
     if(settings.notif)ensureNotifPermission();
   },
@@ -144,6 +146,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       if(prev&&prev.status==='on'&&o.status==='left')this.sysMsg(`${o.name} a quitté la sortie`);
       if((o.sos||null)!==((prev&&prev.sos)||null)){this.renderHead();this.dirtyView(true);
         if(live&&!Moder.hidden({pid:id},this.blk())){
+          if(o.sos&&Date.now()-o.sos<SOS_MS&&Pocket.on)Pocket.close();
           if(o.sos&&Date.now()-o.sos<SOS_MS)Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:this.whereText(id,o.pos),sos:true,key:'sos-'+id,tap:{k:'sos',pid:id}});
           else if(prev&&prev.sos)Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+id,tap:{k:'map',pid:id}});
         }}
@@ -235,9 +238,11 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       if(w.a==null||this.passed[i]||loc.along<w.a-15||loc.along>w.a+400)return;
       this.passed[i]=f.t;const d=w.p>0&&this.runStart?w.p-(f.t-this.runStart)/1000:null;
       this.sysMsg('📍 '+w.n+(d!=null?' · '+fmtDelta(d):''));this.publish(true);
+      Push.send(this.link,this.pid,'w',{title:'📍 '+this.name+' · '+w.n,body:'Passage à '+hhmm(f.t)+(d!=null?' · '+fmtDelta(d):''),key:'wp-'+this.pid,tap:{k:'map',pid:this.pid}});
       if(settings.speak)Voice.say(w.n+(d!=null&&Math.abs(d)>=60?' : '+fmtDelta(d)+' sur le plan':d!=null?' : dans les temps':''));
     });
-    if(!this.endReached&&r.L>500&&r.L-loc.along<80&&loc.off<60&&this.stats.dist>r.L*0.5){this.endReached=true;this.finT=f.t;Snd.ok();toast('🏁 Fin du tracé « '+r.name+' »');this.publish(true)}
+    if(!this.endReached&&r.L>500&&r.L-loc.along<80&&loc.off<60&&this.stats.dist>r.L*0.5){this.endReached=true;this.finT=f.t;Snd.ok();toast('🏁 Fin du tracé « '+r.name+' »');this.publish(true);
+      Push.send(this.link,this.pid,'w',{title:'🏁 '+this.name+' est arrivé',body:(this.runStart?'En '+fmtTime(f.t-this.runStart)+' · ':'')+r.name,key:'fin-'+this.pid,tap:{k:'map',pid:this.pid}})}
   },
   tick(){
     if(!this.on)return;this.publish();this.saveSoon();
@@ -295,6 +300,10 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(q&&q.k==='ok')this.sos=null;
     this.myMsgs.push(m);if(this.myMsgs.length>40)this.myMsgs.shift();
     this.addMsg(m,true);this.publishMsgs();this.publish(true);
+    /* notification push : à tout le monde (coureurs et suiveurs) ; « tout va bien » remplace le SOS */
+    const sos=m.k==='sos',ok=m.k==='ok';
+    Push.send(this.link,this.pid,'a',{title:sos?'🆘 '+this.name+' a besoin d\'aide':ok?'✔ '+this.name+' : tout va bien':'💬 '+this.name,
+      body:sos?'Touche pour voir sa position.':text,sos,key:(sos||ok?'sos-':'msg-')+this.pid,tap:{k:sos?'sos':'msg',pid:this.pid}},{high:sos||ok,group:sos||ok?'sos-'+this.pid:undefined});
     return true;
   },
   /* ---------- sauvegarde (reprise si l'appli est fermée) ---------- */
@@ -328,8 +337,9 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!this.on)return;
     const silent=reason==='closed';
     if(!silent){this.status='left';this.publish(true);this.publishChunks()}
+    if(this.link)Push.unregister(this.link);
     this.on=false;this.ended=true;clearInterval(this.tickI);clearInterval(this.expI);if(this.unsub)this.unsub();this.unsub=null;
-    GPS.stop();Wake.off();
+    GPS.stop();Pocket.close();Wake.off();
     const sm=this.summary();if(!store.set(K.last,sm)){const s2=Object.assign({},sm,{others:null,route:null});if(!store.set(K.last,s2)){s2.track=null;store.set(K.last,s2)}}
     store.del(K.active);
     const m=this.m;this.m=null;if(!this.keepLink)setTimeout(()=>{try{m.close()}catch(e){}},silent?300:3000);

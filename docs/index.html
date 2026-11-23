@@ -941,6 +941,18 @@ table.plantab tr.fin th,table.plantab tr.fin td{border-top:2px solid var(--acc)}
 .rpbtns #rpPlay{flex:1}
 .rpspeed{display:flex;flex-direction:column;font-size:.75rem;color:var(--muted)}
 .rpspeed select{min-height:40px;font-size:1rem}
+
+/* mode poche */
+#pocket{position:fixed;inset:0;background:#000;z-index:2147483000;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:none;outline:none}
+#pocket[hidden]{display:none}
+#pocket .pk{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.25rem;color:#3c3c3c;text-align:center;max-width:80vw;pointer-events:none}
+#pkClock{font-size:2rem;color:#4d4d4d;font-variant-numeric:tabular-nums}
+#pkInfo{font-size:.95rem;font-variant-numeric:tabular-nums}
+#pocket small{font-size:.75rem}
+#pocket .pkbar{display:block;width:9rem;height:3px;background:#1c1c1c;border-radius:2px;overflow:hidden;position:relative}
+#pocket .pkbar::after{content:"";position:absolute;inset:0;width:0;background:#6b6b6b}
+#pocket.holding .pkbar::after{width:100%;transition:width 2s linear}
+body.pocketon{overflow:hidden}
 </style>
 </head>
 <body>
@@ -1196,7 +1208,8 @@ table.plantab tr.fin th,table.plantab tr.fin td{border-top:2px solid var(--acc)}
     <h2>Téléphone verrouillé</h2>
     <ul>
       <li><b>Appli (Android, iPhone)</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute. Sur iPhone, autoriser la position « Toujours ».</li>
-      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte ; messages et alertes SOS s'affichent en notification si tu les autorises, tant que la page reste ouverte en arrière-plan.</li>
+      <li><b>Navigateur (iPhone compris)</b> : le GPS d'une page s'arrête quand l'écran se verrouille. Pour partager sa course, ☰ Menu › <b>🌑 Mode poche</b> : l'écran reste allumé mais noir (presque rien ne consomme sur un écran OLED), un appui long le rallume.</li>
+      <li><b>Notifications, page fermée</b> : messages, SOS, passages aux points et arrivée arrivent en notification même navigateur fermé, sur Android et ordinateur dès qu'elles sont autorisées. Sur iPhone, il faut d'abord ajouter Follow Trail à l'écran d'accueil (Partager › Sur l'écran d'accueil), l'ouvrir de là et y coller le lien de suivi.</li>
       <li>En zone blanche, tout repart dès le retour du réseau : la trace complète est renvoyée.</li>
       <li>Course longue : le <b>mode économie</b> envoie la position toutes les 30 s.</li>
     </ul>
@@ -1210,6 +1223,9 @@ table.plantab tr.fin th,table.plantab tr.fin td{border-top:2px solid var(--acc)}
   <main id="sheetBody"></main>
 </div>
 <div id="toast" role="status"></div>
+<div id="pocket" hidden role="dialog" aria-modal="true" aria-label="Mode poche : écran noir, la course continue. Appui long pour revenir." tabindex="-1">
+  <div class="pk"><b id="pkClock"></b><span id="pkInfo"></span><small>Appui long pour revenir</small><i class="pkbar"></i><small id="pkWarn" hidden>Ce navigateur ne sait pas garder l'écran allumé : règle la mise en veille du téléphone au maximum.</small></div>
+</div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="box">
     <h2 id="modalTitle" tabindex="-1"></h2>
@@ -3530,7 +3546,7 @@ var qrcode = function() {
 </script>
 <script>'use strict';
 (function(){
-const VERSION='1.1.0';
+const VERSION='1.2.0';
 const CAP=window.capacitorExports||null;
 const NATIVE=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
 const P=NATIVE&&CAP?{geo:CAP.registerPlugin('BackgroundGeolocation'),fs:CAP.registerPlugin('Filesystem'),share:CAP.registerPlugin('Share'),awake:CAP.registerPlugin('KeepAwake'),tts:CAP.registerPlugin('TextToSpeech'),device:CAP.registerPlugin('Device'),notif:CAP.registerPlugin('LocalNotifications'),app:CAP.registerPlugin('App')}:{};
@@ -3784,9 +3800,12 @@ const Notify={
       return;
     }
     if(!('Notification' in window)||Notification.permission!=='granted'||document.visibilityState==='visible')return;
-    const opts={body:o.body||'',tag:o.key||undefined,renotify:!!o.key,icon:'icon-192.png',badge:'icon-192.png',requireInteraction:!!o.sos,data:o.tap||null,vibrate:o.sos?[600,200,600,200,900]:[80,60,80]};
+    const opts={body:o.body||'',tag:o.key||undefined,renotify:!!o.key,icon:'icon-192.png',badge:'icon-192.png',requireInteraction:!!o.sos,data:Object.assign({ts:Date.now()},o.tap||{}),vibrate:o.sos?[600,200,600,200,900]:[80,60,80]};
     const direct=()=>{try{const n=new Notification(o.title,opts);n.onclick=()=>{try{window.focus()}catch(e){}this.onTap(o.tap);n.close()}}catch(e){}};
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification(o.title,opts)).catch(direct);else direct();
+    /* la notification push du relais a pu arriver avant : pas de deuxième sonnerie */
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(async r=>{
+      if(o.key){const old=await r.getNotifications({tag:o.key});if(old.some(x=>x.title===o.title&&x.data&&Date.now()-x.data.ts<20000))return}
+      return r.showNotification(o.title,opts)}).catch(direct);else direct();
   },
   clear(key){
     if(NATIVE&&P.notif){try{P.notif.cancel({notifications:[{id:this.idFor(key)}]}).catch(()=>{})}catch(e){}return}
@@ -3795,6 +3814,7 @@ const Notify={
   /* toucher la notification : ouvrir l'endroit concerné */
   onTap(x){
     if(!x)return;
+    if(!x.w&&x.code&&typeof Watch!=='undefined'&&Watch.src[x.code])x.w=x.code;   /* notification push */
     if(x.w&&typeof Watch!=='undefined'&&Watch.src[x.w]){Watch.open();if(x.pid)Watch.select(x.w,x.pid);Watch.setTab(x.k==='msg'?'chat':Watch.wide?'run':'map');return}
     if(Ride.on){show('ride');if(x.k==='msg')Ride.setTab('chat');else{Ride.setTab('map');if(x.pid&&Ride.riders[x.pid])setTimeout(()=>RideMap.focus(x.pid),150)}}
   },
@@ -3802,12 +3822,55 @@ const Notify={
   async ask(){
     if(NATIVE){ensureNotifPermission();return 'granted'}
     if(!('Notification' in window))return 'unsupported';
-    if(Notification.permission!=='default')return Notification.permission;
-    try{return await Notification.requestPermission()}catch(e){return 'denied'}
+    if(Notification.permission!=='default'){if(Notification.permission==='granted')Push.registerAll();return Notification.permission}
+    let st='denied';try{st=await Notification.requestPermission()}catch(e){}
+    if(st==='granted')Push.registerAll();return st;
   },
   state(){return NATIVE?'native':!('Notification' in window)?'unsupported':Notification.permission}
 };
 Notify.init();
+
+/* ---------------- Mode poche (navigateur) ----------------
+   Dans un navigateur, le GPS s'arrête dès que l'écran se verrouille. Le mode poche garde l'écran allumé
+   (verrou d'écran) mais entièrement noir : sur un écran OLED les pixels noirs sont éteints, la batterie
+   tient, et rien ne se déclenche dans la poche. Appui long (2 s) pour revenir. */
+const POCKET_HOLD=2000;
+const Pocket={on:false,t:null,hold:null,pos:0,
+  open(){
+    if(this.on)return;this.on=true;Wake.on();
+    const el=$('#pocket');el.hidden=false;document.body.classList.add('pocketon');
+    try{const r=document.documentElement;if(r.requestFullscreen&&!document.fullscreenElement)r.requestFullscreen({navigationUI:'hide'}).catch(()=>{})}catch(e){}
+    $('#pkWarn').hidden='wakeLock' in navigator;
+    this.tick();clearInterval(this.t);this.t=setInterval(()=>this.tick(),20000);
+    setTimeout(()=>{try{el.focus({preventScroll:true})}catch(e){}},50);
+  },
+  close(){
+    if(!this.on)return;this.on=false;clearInterval(this.t);this.cancel();
+    $('#pocket').hidden=true;document.body.classList.remove('pocketon');
+    try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{})}catch(e){}
+    vib(60);
+  },
+  /* infos discrètes (gris très sombre), déplacées régulièrement pour ne pas marquer l'écran */
+  tick(){
+    if(!this.on)return;
+    const R=typeof Ride!=='undefined'&&Ride.on?Ride:null,s=R&&R.stats;
+    $('#pkClock').textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    $('#pkInfo').textContent=R?fmtKm(s.dist)+' km · '+fmtTime(Date.now()-(R.runStart||R.start))+(R.m&&!R.m.connected?' · hors réseau':''):'';
+    this.pos=(this.pos+1)%4;const box=$('#pocket .pk');
+    box.style.top=[18,58,34,72][this.pos]+'%';box.style.left=[50,46,54,50][this.pos]+'%';
+  },
+  start(){this.cancel();$('#pocket').classList.add('holding');this.hold=setTimeout(()=>this.close(),POCKET_HOLD)},
+  cancel(){clearTimeout(this.hold);this.hold=null;const el=$('#pocket');if(el)el.classList.remove('holding')}
+};
+(()=>{const el=$('#pocket');if(!el)return;
+  el.addEventListener('pointerdown',e=>{e.preventDefault();Pocket.start()});
+  ['pointerup','pointercancel','pointerleave'].forEach(k=>el.addEventListener(k,()=>Pocket.cancel()));
+  el.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  el.addEventListener('keydown',e=>{if(e.key==='Escape'||e.key==='Enter'||e.key===' '){e.preventDefault();Pocket.close()}});
+  /* écran rallumé après une coupure : on reprend le verrou d'écran */
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Pocket.on){Wake.on();Pocket.tick()}});
+})();
 
 /* ---------------- Carte ---------------- */
 const IGN=l=>`https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${l}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
@@ -4105,7 +4168,10 @@ function tile(label,val,unit,cls){return`<div class="tile ${cls||''}"><span>${la
    Code : 12 chiffres (le premier désigne le relais) + une clé de 8 caractères, « 148291355720-K7P2XM4Q ».
    La clé rend impossible de retrouver les codes en essayant toutes les combinaisons hors ligne à partir
    de ce que voit n'importe qui sur un relais public. Les anciens codes de 12 chiffres seuls restent lisibles. */
+/* relais : « 3 » = relais Follow Trail sur Cloudflare (notifications push), « 1 » HiveMQ et « 2 » EMQX en secours */
+const RELAY3='';
 const BROKERS={'1':'wss://broker.hivemq.com:8884/mqtt','2':'wss://broker.emqx.io:8084/mqtt'};
+if(RELAY3)BROKERS['3']=RELAY3;
 (()=>{const t=store.get('flt.testbroker',null);if(t)BROKERS['9']=t})();
 const WEB_URL='https://gregmey0.github.io/followtrail/';
 const APP={name:'Follow Trail',scheme:'followtrail',pkg:'io.github.gregmey0.followtrail',apk:'https://github.com/gregmey0/followtrail/releases/latest/download/FollowTrail.apk'};
@@ -4184,10 +4250,10 @@ class Mqtt{
   waitConnected(ms){return new Promise(res=>{if(this.connected)return res(true);const t0=Date.now(),i=setInterval(()=>{if(this.connected||Date.now()-t0>ms){clearInterval(i);res(this.connected)}},100)})}
   close(){this.closed=true;clearTimeout(this.rt);clearInterval(this.ka);try{this._send(new Uint8Array([0xE0,0]));this.ws&&this.ws.close()}catch(e){}}
 }
-/* relais : serveur de test éventuel, puis HiveMQ, puis EMQX */
+/* relais : serveur de test éventuel, puis le relais Follow Trail, puis HiveMQ, puis EMQX */
 async function pickBroker(b){
   const old=b.innerHTML;b.disabled=true;b.textContent='⏳ Connexion au relais…';let broker=null;
-  for(const k of['9','1','2']){if(!BROKERS[k])continue;const m=new Mqtt(BROKERS[k]);m.connect();const ok=await m.waitConnected(7000);m.close();if(ok){broker=k;break}}
+  for(const k of['9','3','1','2']){if(!BROKERS[k])continue;const m=new Mqtt(BROKERS[k]);m.connect();const ok=await m.waitConnected(7000);m.close();if(ok){broker=k;break}}
   b.disabled=false;b.innerHTML=old;
   if(!broker)toast('Relais injoignable : vérifie la connexion internet puis réessaie.',true);return broker;
 }
@@ -4208,6 +4274,88 @@ const SessionLink={
     const s=await new Promise(res=>{waiter=res;setTimeout(()=>res(null),12000)});waiter=null;
     if(!s&&!silent){m.close();return null}
     return link;
+  }
+};
+
+/* ---------------- Notifications push (relais Cloudflare) ----------------
+   Dans un navigateur, la page ne reçoit plus rien une fois fermée ou endormie. Le relais garde l'adresse
+   d'abonnement de chaque téléphone qui suit une sortie et le réveille quand quelqu'un envoie un message,
+   lance ou lève un SOS, passe un point du GPX ou arrive. Le contenu est chiffré avec la clé de la sortie :
+   le relais ne transmet qu'un paquet illisible, que le service worker du destinataire déchiffre.
+   Android, ordinateur : dès que les notifications sont autorisées. iPhone : appli web ajoutée à l'écran d'accueil.
+   Dans l'appli (Android, iPhone), les notifications locales prennent le relais tant qu'elle tourne. */
+const PUSH_RELAYS=new Set(['3','9']);        /* relais qui savent envoyer des notifications push */
+const relayHttp=code=>(BROKERS[code[0]]||'').replace(/^ws/,'http').replace(/\/mqtt$/,'');
+const tidOf=link=>link.base.slice(7);
+const b64uEnc=b=>{let s='';const u=new Uint8Array(b);for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const b64uDec=s=>{s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+/* clés des sorties suivies, pour le service worker (IndexedDB : la clé reste non exportable) */
+const PushKeys={db:null,
+  open(){return this.db||(this.db=new Promise((res,rej)=>{const r=indexedDB.open('flt-push',1);r.onupgradeneeded=()=>r.result.createObjectStore('keys');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}))},
+  async op(fn){try{const db=await this.open();return await new Promise(res=>{const tx=db.transaction('keys','readwrite');fn(tx.objectStore('keys'));tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);tx.onabort=()=>res(false)})}catch(e){return false}},
+  put(k,v){return this.op(s=>s.put(v,k))},
+  del(k){return this.op(s=>s.delete(k))}
+};
+const Push={
+  supported(){return !NATIVE&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window},
+  ios(){return /iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)},
+  standalone(){try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}},
+  /* iPhone dans Safari : il faut d'abord ajouter l'appli web à l'écran d'accueil */
+  needsInstall(){return !NATIVE&&this.ios()&&!this.standalone()},
+  canFor(code){return this.supported()&&PUSH_RELAYS.has(String(code)[0])},
+  id(){let i=store.get('flt.pushid',null);if(!i){i=uid();store.set('flt.pushid',i)}return i},
+  async vapid(code){
+    const k='flt.vapid.'+code[0],c=store.get(k,null);if(c)return c;
+    try{const r=await fetch(relayHttp(code)+'/vapid');const j=await r.json();if(j&&j.key){store.set(k,j.key);return j.key}}catch(e){}
+    return null;
+  },
+  async subscription(code){
+    if(!this.canFor(code)||Notification.permission!=='granted'||!settings.notif)return null;
+    const vk=await this.vapid(code);if(!vk)return null;
+    if(!(await navigator.serviceWorker.getRegistration()))return null;
+    const reg=await navigator.serviceWorker.ready;
+    let s=await reg.pushManager.getSubscription();
+    if(s&&s.options&&s.options.applicationServerKey&&b64uEnc(s.options.applicationServerKey)!==vk){try{await s.unsubscribe()}catch(e){}s=null}
+    if(!s)s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uDec(vk)});
+    return s;
+  },
+  /* inscrit ce téléphone pour une sortie : « w » = suit, « r » = court ; pid = son identifiant dans la sortie */
+  async register(link,role,pid){
+    if(!link||!link.m||!this.canFor(link.code))return false;
+    try{
+      const s=await this.subscription(link.code);if(!s)return false;
+      await PushKeys.put(tidOf(link),{key:link.key,code:link.code,role});
+      link.m.publish('fltpush/'+tidOf(link)+'/sub/'+this.id(),new TextEncoder().encode(JSON.stringify({sub:s.toJSON(),role,pid})));
+      link.pushOn=true;return true;
+    }catch(e){console.warn('push',e);return false}
+  },
+  unregister(link){
+    if(!link||!link.m||!PUSH_RELAYS.has(link.code[0]))return;
+    link.m.publish('fltpush/'+tidOf(link)+'/sub/'+this.id(),new Uint8Array(0));PushKeys.del(tidOf(link));link.pushOn=false;
+  },
+  /* envoi : « a » à tous, « r » aux coureurs, « w » à ceux qui suivent. Le contenu est chiffré avec la clé de la sortie. */
+  async send(link,pid,aud,n,{high,group}={}){
+    if(!link||!link.m||!PUSH_RELAYS.has(link.code[0]))return;
+    try{const pl=await seal(link.key,n);link.m.publish('fltpush/'+tidOf(link)+'/send/'+pid+'/'+aud+'/'+(high?'h':'n')+(group?'/'+String(group).replace(/[^A-Za-z0-9_-]/g,'').slice(0,32):''),pl)}catch(e){}
+  },
+  /* iPhone dans Safari : marche à suivre. L'appli de l'écran d'accueil a sa propre mémoire : on copie les liens suivis. */
+  async installHelp(){
+    const links=typeof Watch!=='undefined'?Watch.srcList().map(S=>liveURL(S.code)):[];
+    const v=await modal({title:'Notifications sur iPhone',body:`<p>Sur iPhone, un site ne peut envoyer de notifications, écran éteint, qu'une fois <b>ajouté à l'écran d'accueil</b> :</p>
+      <ol><li>Touche <b>Partager</b> (le carré avec une flèche vers le haut).</li><li>Choisis <b>Sur l'écran d'accueil</b> puis <b>Ajouter</b> (laisse « Ouvrir comme app web » activé).</li>
+      <li>Ouvre <b>Follow Trail</b> depuis l'écran d'accueil, touche <b>Suivre un coureur</b> et colle le lien.</li><li>Accepte les notifications quand elles sont proposées.</li></ol>
+      <p class="hint">L'appli de l'écran d'accueil ne voit pas ce que Safari garde en mémoire : copie d'abord ${links.length>1?'les liens':'le lien'} de suivi.</p>`,
+      buttons:links.length?[{label:'📋 Copier '+(links.length>1?'les liens':'le lien'),value:'copy',primary:true},{label:'Fermer',value:false}]:[{label:'OK',value:false,primary:true}]});
+    if(v==='copy')try{await navigator.clipboard.writeText(links.join('\n'));toast('Copié : colle-le dans l\'appli de l\'écran d\'accueil')}catch(e){toast(links.join(' '))}
+  },
+  /* personnes bloquées : le service worker ne les affiche pas non plus */
+  syncBlocked(){if(this.supported())PushKeys.put('_blocked',Moder.blocked().map(b=>b.pid))},
+  /* tout réinscrire, par exemple quand l'autorisation vient d'être donnée */
+  registerAll(){
+    if(!this.supported())return;
+    if(typeof Ride!=='undefined'&&Ride.on&&Ride.link)this.register(Ride.link,'r',Ride.pid);
+    if(typeof Watch!=='undefined')Object.values(Watch.src).forEach(S=>{if(S.link)this.register(S.link,'w',Watch.me().pid)});
+    this.syncBlocked();
   }
 };
 
@@ -4428,11 +4576,13 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     ['/p/+','/t/+/+','/r/+','/m/+','/route/+','/w/+'].forEach(t=>this.m.subscribe(this.base+t));
     if(!this.ready)setTimeout(()=>{if(this.on&&!this.ready){this.ready=true;this.publishAll()}},5000);
     GPS.start();this.unsub=GPS.on(f=>this.onFix(f));Wake.on();Voice.unlock();
+    if(!NATIVE&&!a.resume)setTimeout(()=>{if(this.on)toast('Dans le navigateur, l\'écran doit rester allumé pour le GPS : ☰ Menu › 🌑 Mode poche le garde noir.')},4000);
     this.tickI=setInterval(()=>this.tick(),1000);
     clearInterval(this.expI);this.expI=setInterval(()=>this.checkExpiry(),600000);setTimeout(()=>this.checkExpiry(),20000);
     RideMap.reset();show('ride');this.setTab('map');
     if(this.link.session&&!this.isOrg)this.onSession(this.link.session);
     if(this.m.connected)this.onNet(true);
+    if(Notify.state()==='granted')Push.register(link,'r',this.pid);
     this.save();this.renderHead();
     if(settings.notif)ensureNotifPermission();
   },
@@ -4516,6 +4666,7 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       if(prev&&prev.status==='on'&&o.status==='left')this.sysMsg(`${o.name} a quitté la sortie`);
       if((o.sos||null)!==((prev&&prev.sos)||null)){this.renderHead();this.dirtyView(true);
         if(live&&!Moder.hidden({pid:id},this.blk())){
+          if(o.sos&&Date.now()-o.sos<SOS_MS&&Pocket.on)Pocket.close();
           if(o.sos&&Date.now()-o.sos<SOS_MS)Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:this.whereText(id,o.pos),sos:true,key:'sos-'+id,tap:{k:'sos',pid:id}});
           else if(prev&&prev.sos)Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+id,tap:{k:'map',pid:id}});
         }}
@@ -4607,9 +4758,11 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
       if(w.a==null||this.passed[i]||loc.along<w.a-15||loc.along>w.a+400)return;
       this.passed[i]=f.t;const d=w.p>0&&this.runStart?w.p-(f.t-this.runStart)/1000:null;
       this.sysMsg('📍 '+w.n+(d!=null?' · '+fmtDelta(d):''));this.publish(true);
+      Push.send(this.link,this.pid,'w',{title:'📍 '+this.name+' · '+w.n,body:'Passage à '+hhmm(f.t)+(d!=null?' · '+fmtDelta(d):''),key:'wp-'+this.pid,tap:{k:'map',pid:this.pid}});
       if(settings.speak)Voice.say(w.n+(d!=null&&Math.abs(d)>=60?' : '+fmtDelta(d)+' sur le plan':d!=null?' : dans les temps':''));
     });
-    if(!this.endReached&&r.L>500&&r.L-loc.along<80&&loc.off<60&&this.stats.dist>r.L*0.5){this.endReached=true;this.finT=f.t;Snd.ok();toast('🏁 Fin du tracé « '+r.name+' »');this.publish(true)}
+    if(!this.endReached&&r.L>500&&r.L-loc.along<80&&loc.off<60&&this.stats.dist>r.L*0.5){this.endReached=true;this.finT=f.t;Snd.ok();toast('🏁 Fin du tracé « '+r.name+' »');this.publish(true);
+      Push.send(this.link,this.pid,'w',{title:'🏁 '+this.name+' est arrivé',body:(this.runStart?'En '+fmtTime(f.t-this.runStart)+' · ':'')+r.name,key:'fin-'+this.pid,tap:{k:'map',pid:this.pid}})}
   },
   tick(){
     if(!this.on)return;this.publish();this.saveSoon();
@@ -4667,6 +4820,10 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(q&&q.k==='ok')this.sos=null;
     this.myMsgs.push(m);if(this.myMsgs.length>40)this.myMsgs.shift();
     this.addMsg(m,true);this.publishMsgs();this.publish(true);
+    /* notification push : à tout le monde (coureurs et suiveurs) ; « tout va bien » remplace le SOS */
+    const sos=m.k==='sos',ok=m.k==='ok';
+    Push.send(this.link,this.pid,'a',{title:sos?'🆘 '+this.name+' a besoin d\'aide':ok?'✔ '+this.name+' : tout va bien':'💬 '+this.name,
+      body:sos?'Touche pour voir sa position.':text,sos,key:(sos||ok?'sos-':'msg-')+this.pid,tap:{k:sos?'sos':'msg',pid:this.pid}},{high:sos||ok,group:sos||ok?'sos-'+this.pid:undefined});
     return true;
   },
   /* ---------- sauvegarde (reprise si l'appli est fermée) ---------- */
@@ -4700,8 +4857,9 @@ const Ride={on:false,tab:'map',riders:{},routes:{},msgs:new Map(),watchers:{},mo
     if(!this.on)return;
     const silent=reason==='closed';
     if(!silent){this.status='left';this.publish(true);this.publishChunks()}
+    if(this.link)Push.unregister(this.link);
     this.on=false;this.ended=true;clearInterval(this.tickI);clearInterval(this.expI);if(this.unsub)this.unsub();this.unsub=null;
-    GPS.stop();Wake.off();
+    GPS.stop();Pocket.close();Wake.off();
     const sm=this.summary();if(!store.set(K.last,sm)){const s2=Object.assign({},sm,{others:null,route:null});if(!store.set(K.last,s2)){s2.track=null;store.set(K.last,s2)}}
     store.del(K.active);
     const m=this.m;this.m=null;if(!this.keepLink)setTimeout(()=>{try{m.close()}catch(e){}},silent?300:3000);
@@ -5059,8 +5217,8 @@ const Moder={
     if(v==='report')this.report(m);
     return v;
   },
-  block(m){const l=this.blocked().filter(b=>b.pid!==m.pid);l.push({pid:m.pid,name:String(m.name||'?').slice(0,30)});settings.blocked=l.slice(-200);saveSettings()},
-  unblock(pid){settings.blocked=this.blocked().filter(b=>b.pid!==pid);saveSettings();if(Ride.on&&Ride.isOrg)Ride.unblockForAll(pid)},
+  block(m){const l=this.blocked().filter(b=>b.pid!==m.pid);l.push({pid:m.pid,name:String(m.name||'?').slice(0,30)});settings.blocked=l.slice(-200);saveSettings();Push.syncBlocked()},
+  unblock(pid){settings.blocked=this.blocked().filter(b=>b.pid!==pid);saveSettings();Push.syncBlocked();if(Ride.on&&Ride.isOrg)Ride.unblockForAll(pid)},
   report(m){
     const body=`Message signalé dans Follow Trail\nAuteur : ${m.name}\nHeure : ${new Date(m.t).toLocaleString('fr-FR')}\nTexte : ${m.text}\n`;
     const url=CONTACT?`mailto:${CONTACT}?subject=${encodeURIComponent('Signalement Follow Trail')}&body=${encodeURIComponent(body)}`
@@ -5134,7 +5292,8 @@ $('#sheetBody').addEventListener('click',e=>{if(!Routes.isOpen())return;const b=
 const RideMenu={
   open(){
     const o=Ride.isOrg,live=Ride.mode==='live',box=document.createElement('div');box.className='menu';
-    box.innerHTML=live?`<button type="button" class="primary" data-m="invite">🔗 Envoyer le lien de suivi</button>
+    const pk=NATIVE?'':'<button type="button" data-m="pocket">🌑 Mode poche : écran noir, GPS actif</button>';
+    box.innerHTML=live?`<button type="button" class="primary" data-m="invite">🔗 Envoyer le lien de suivi</button>${pk}
       <button type="button" data-m="routes">🧭 GPX du parcours</button>
       <button type="button" data-m="map">🗂 Fond de carte et affichage</button>
       <button type="button" data-m="reset">↺ Remettre les compteurs à zéro (au départ)</button>
@@ -5144,7 +5303,7 @@ const RideMenu={
       <button type="button" data-m="help">❓ Aide</button>
       <button type="button" class="danger" data-m="end">⏹ Terminer le partage</button>
       <p class="hint center">Code de suivi ${fmtCode(Ride.code)}${Ride.eco?' · mode économie : envoi toutes les 30 s':''}</p>`
-      :`<button type="button" class="primary" data-m="invite">🔗 Inviter (lien, QR code, code)</button>
+      :`<button type="button" class="primary" data-m="invite">🔗 Inviter (lien, QR code, code)</button>${pk}
       <button type="button" data-m="routes">🧭 Tracés GPX</button>
       <button type="button" data-m="map">🗂 Fond de carte et affichage</button>
       <button type="button" data-m="reset">↺ Remettre mes compteurs à zéro</button>
@@ -5166,6 +5325,7 @@ const RideMenu={
       if(k==='gpxall'){const t=[{name:Ride.name,pts:Ride.track}].concat(Ride.others().map(R=>({name:R.st.name,pts:Ride.fullTrack(R)})));shareFile(slug('followtrail_'+Ride.sname)+'.gpx',trackToGPX(Ride.sname,t))}
       if(k==='reset'){Sheet.hide();Ride.resetStats()}
       if(k==='replay')Replay.open(rideReplayData());
+      if(k==='pocket'){Sheet.hide();Pocket.open()}
       if(k==='orgoff'){settings.orgOff=!settings.orgOff;saveSettings();b.setAttribute('aria-pressed',String(settings.orgOff));b.querySelector('b').textContent=settings.orgOff?'oui':'non';
         toast(settings.orgOff?'Tu seras alerté si quelqu\'un s\'écarte de son tracé plus de 30 s (écart réglable dans les Réglages).':'Alerte hors tracé du groupe désactivée');
         if(settings.orgOff){Notify.ask();Ride.others().forEach(R=>{R.offSince=null;R.offAlerted=false})}}
@@ -5404,11 +5564,13 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(link.session)this.onSession(S,link.session);
     setTimeout(()=>{if(this.src[S.code]===S&&this.abandoned(S))this.cleanup(S)},7000);
     this.presence(S);this.render(true);
+    if(Notify.state()==='granted')Push.register(link,'w',this.me().pid);
     return true;
   },
   async remove(code,ask){
     const S=this.src[code];if(!S)return;
     if(ask){const v=await modal({title:'Ne plus suivre ?',body:`<p><b>${esc(this.srcName(S))}</b> disparaît de ton suivi. Tu pourras le reprendre avec le lien.</p>`,buttons:[{label:'🗑 Ne plus suivre',value:true,danger:true},{label:'Annuler',value:false}]});if(!v)return}
+    if(S.link)Push.unregister(S.link);
     if(S.m&&S.status!=='closed'){const e=new Uint8Array(0),m=S.m;m.publish(S.base+'/w/'+this.me().pid,e,true);setTimeout(()=>{try{m.close()}catch(err){}},2500)}else if(S.link)S.link.close();
     delete this.src[code];if(this.sel&&this.sel.startsWith(code+'|'))this.sel=null;if(this.chatSrc===code)this.chatSrc=null;
     Object.keys(this.mk).forEach(k=>{if(k.startsWith(code+'|')){this.riderLay.removeLayer(this.mk[k]);delete this.mk[k]}});
@@ -5451,8 +5613,8 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       const prev=R.st;R.st=o;
       if(o.pos&&o.status==='on'){const tr=R.trail,l=tr[tr.length-1];if(!l||l[2]!==o.pos.t){tr.push([o.pos.lat,o.pos.lon,o.pos.t,o.pos.alt]);if(tr.length>4000)tr.splice(0,500)}}
       if(o.sos&&Date.now()-o.sos<SOS_MS&&(!prev||prev.sos!==o.sos)&&Date.now()-S.syncT>3000){Snd.sos();vib([600,200,600,200,900]);toast('🆘 '+o.name+' a besoin d\'aide',true);
-        Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:'Touche pour voir sa position.',sos:true,key:'sos-'+S.code+id,tap:{w:S.code,k:'sos',pid:id}})}
-      if(!o.sos&&prev&&prev.sos&&Date.now()-S.syncT>3000){toast('✔ '+o.name+' : tout va bien');Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+S.code+id,tap:{w:S.code,k:'map',pid:id}})}
+        Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:'Touche pour voir sa position.',sos:true,key:'sos-'+id,tap:{w:S.code,k:'sos',pid:id}})}
+      if(!o.sos&&prev&&prev.sos&&Date.now()-S.syncT>3000){toast('✔ '+o.name+' : tout va bien');Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+id,tap:{w:S.code,k:'map',pid:id}})}
       if(!prev)this.routesDirty=true;
       if(prev&&prev.f!==o.f&&JSON.stringify(prev.f)!==JSON.stringify(o.f))this.routesDirty=true;
       this.dirty();return}
@@ -5469,7 +5631,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       if(!m.fw||sos){const away=document.visibilityState==='hidden'||this.tab!=='chat'||this.chatSrc!==S.code;
         if(away||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
         if(away||sos)Notify.show({title:sos?'🆘 '+m.name+' a besoin d\'aide':'💬 '+m.name,body:sos?'Touche pour voir sa position.':Moder.clean(m.text),sos,
-          key:(sos||m.k==='ok'?'sos-':'msg-')+S.code+m.pid,tap:{w:S.code,k:sos?'sos':'msg',pid:m.pid}})}
+          key:(sos||m.k==='ok'?'sos-':'msg-')+m.pid,tap:{w:S.code,k:sos?'sos':'msg',pid:m.pid}})}
     }
     if(this.tab==='chat'&&this.chatSrc===S.code&&document.visibilityState==='visible')S.lastRead=Date.now();
     this.renderChat();this.renderHead();
@@ -5483,6 +5645,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     const m={id:uid(),t:Date.now(),pid:w.pid,name:w.name,text,fw:1};if(q)m.k=q.k;
     S.myMsgs.push(m);if(S.myMsgs.length>40)S.myMsgs.shift();this.addMsg(S,m);
     seal(S.key,{pid:w.pid,name:w.name,fw:1,msgs:S.myMsgs.slice(-40)}).then(b=>S.m.publish(S.base+'/m/'+w.pid,b,true));
+    Push.send(S.link,w.pid,'r',{title:'📣 '+w.name,body:text,key:'msg-'+w.pid,tap:{k:'msg',pid:w.pid}});
     this.presence(S);return true;
   },
   /* partage abandonné (rien de neuf depuis 48 h, jamais terminé) : le premier qui l'ouvre l'efface du relais */
@@ -5627,7 +5790,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       <button type="button" data-wm="replay">▶ Rejouer ${this.srcList().length>1?'(coureur choisi)':'depuis le départ'}</button>
       <button type="button" data-wm="map">🗂 Fond de carte</button>
       <button type="button" data-wm="name">✏ Mon prénom${this.me().name?' : '+esc(this.me().name):''}</button>
-      ${Notify.state()==='default'?'<button type="button" data-wm="notif">🔔 Activer les notifications (messages, alertes)</button>':''}
+      ${Notify.state()==='default'||Push.needsInstall()?'<button type="button" data-wm="notif">🔔 Notifications, même écran éteint</button>':''}
       <h2>Suivis</h2><ul class="rlist">${this.srcList().map(S=>`<li><span><b>${esc(this.srcName(S))}</b><small>${this.isLive(S)?'Course':'Sortie Group Run'} · code ${fmtCode(S.code)}</small></span><button type="button" class="mini" data-wm="share" data-code="${S.code}" aria-label="Partager le lien">📤</button><button type="button" class="mini danger" data-wm="rm" data-code="${S.code}" aria-label="Ne plus suivre">🗑</button></li>`).join('')||'<li class="hint">Aucun</li>'}</ul>
       <button type="button" data-wm="help">❓ Aide</button><button type="button" data-wm="home">🏠 Accueil (le suivi continue)</button>`;
     Sheet.show('Suivi',box);
@@ -5641,6 +5804,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       if(k==='rm'){Sheet.hide();this.remove(b.dataset.code,true)}
       if(k==='help'){Sheet.hide();show('help')}
       if(k==='replay'){const x=this.selected(),code=x?x.S.code:(this.srcList()[0]||{}).code;const d=code&&watchReplayData(code);if(d)Replay.open(d);else toast('Rien à rejouer pour l\'instant.',true)}
+      if(k==='notif'&&Push.needsInstall()){Sheet.hide();Push.installHelp();return}
       if(k==='notif'){const st=await Notify.ask();Sheet.hide();toast(st==='granted'?'Notifications activées':'Notifications refusées par le navigateur',st!=='granted')}
       if(k==='home'){Sheet.hide();show('home')}
     };
@@ -5775,7 +5939,7 @@ function watchReplayData(code){
 applySimUI();Home.render();
 if(!Compass.needsPerm)Compass.enable();
 try{history.replaceState({s:'home'},'')}catch(e){}
-if(!NATIVE&&'serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if(!NATIVE&&'serviceWorker' in navigator&&(location.protocol==='https:'||store.get('flt.testsw',false)))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 /* liens : #join-CODE (rejoindre une sortie Group Run), #live-CODE (suivre une course) */
 const linkHash=()=>{const m=/^#(join|live)-([0-9A-Za-z-]+)/.exec(location.hash);if(!m)return null;try{history.replaceState({s:'home'},'',location.pathname+location.search)}catch(e){}return{k:m[1],c:m[2]}};
 const openLink=l=>{if(!l)return;if(l.k==='live')Watch.add(l.c);else Join.open(l.c)};
@@ -5794,7 +5958,7 @@ $('#compassBtn').hidden=!Compass.needsPerm;
   if(l){openLink(l);return}
   if(NATIVE&&P.app){try{const r=await P.app.getLaunchUrl();const lc=r&&linkCode(r.url);if(lc){openLink(lc);return}}catch(e){}}
 })();
-window.FollowTrail={GPS,Ride,RideMap,Stats,Chat,Routes,Join,Create,LiveCreate,Watch,WAdd,Replay,PlanEdit,Notify,Summary,planDelta,SessionLink,Mqtt,deriveKey,seal,unseal,newCode,normCode,validCode,fmtCode,parseRouteGPX,makeRoute,routeLocate,encRoute,decRoute,encTrack,decTrack,segments,effortPace,etaInfo,fullTrackOf,effortAt,recentVAM,Voice,settings:()=>settings,store,K,BROKERS};
+window.FollowTrail={GPS,Ride,RideMap,Stats,Chat,Routes,Join,Create,LiveCreate,Watch,WAdd,Replay,PlanEdit,Notify,Summary,planDelta,Pocket,Wake,Push,PushKeys,Moder,SessionLink,Mqtt,deriveKey,seal,unseal,newCode,normCode,validCode,fmtCode,parseRouteGPX,makeRoute,routeLocate,encRoute,decRoute,encTrack,decTrack,segments,effortPace,etaInfo,fullTrackOf,effortAt,recentVAM,Voice,settings:()=>settings,store,K,BROKERS};
 
 })();</script>
 </body>

@@ -250,7 +250,8 @@
     <h2>Téléphone verrouillé</h2>
     <ul>
       <li><b>Appli (Android, iPhone)</b> : le partage continue téléphone verrouillé, les messages arrivent en notification et sont lus à voix haute. Sur iPhone, autoriser la position « Toujours ».</li>
-      <li><b>Navigateur (iPhone compris)</b> : pour partager sa position, garder l'écran allumé. Pour suivre, aucune contrainte ; messages et alertes SOS s'affichent en notification si tu les autorises, tant que la page reste ouverte en arrière-plan.</li>
+      <li><b>Navigateur (iPhone compris)</b> : le GPS d'une page s'arrête quand l'écran se verrouille. Pour partager sa course, ☰ Menu › <b>🌑 Mode poche</b> : l'écran reste allumé mais noir (presque rien ne consomme sur un écran OLED), un appui long le rallume.</li>
+      <li><b>Notifications, page fermée</b> : messages, SOS, passages aux points et arrivée arrivent en notification même navigateur fermé, sur Android et ordinateur dès qu'elles sont autorisées. Sur iPhone, il faut d'abord ajouter Follow Trail à l'écran d'accueil (Partager › Sur l'écran d'accueil), l'ouvrir de là et y coller le lien de suivi.</li>
       <li>En zone blanche, tout repart dès le retour du réseau : la trace complète est renvoyée.</li>
       <li>Course longue : le <b>mode économie</b> envoie la position toutes les 30 s.</li>
     </ul>
@@ -264,6 +265,9 @@
   <main id="sheetBody"></main>
 </div>
 <div id="toast" role="status"></div>
+<div id="pocket" hidden role="dialog" aria-modal="true" aria-label="Mode poche : écran noir, la course continue. Appui long pour revenir." tabindex="-1">
+  <div class="pk"><b id="pkClock"></b><span id="pkInfo"></span><small>Appui long pour revenir</small><i class="pkbar"></i><small id="pkWarn" hidden>Ce navigateur ne sait pas garder l'écran allumé : règle la mise en veille du téléphone au maximum.</small></div>
+</div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="box">
     <h2 id="modalTitle" tabindex="-1"></h2>

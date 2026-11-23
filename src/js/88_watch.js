@@ -36,11 +36,13 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     if(link.session)this.onSession(S,link.session);
     setTimeout(()=>{if(this.src[S.code]===S&&this.abandoned(S))this.cleanup(S)},7000);
     this.presence(S);this.render(true);
+    if(Notify.state()==='granted')Push.register(link,'w',this.me().pid);
     return true;
   },
   async remove(code,ask){
     const S=this.src[code];if(!S)return;
     if(ask){const v=await modal({title:'Ne plus suivre ?',body:`<p><b>${esc(this.srcName(S))}</b> disparaît de ton suivi. Tu pourras le reprendre avec le lien.</p>`,buttons:[{label:'🗑 Ne plus suivre',value:true,danger:true},{label:'Annuler',value:false}]});if(!v)return}
+    if(S.link)Push.unregister(S.link);
     if(S.m&&S.status!=='closed'){const e=new Uint8Array(0),m=S.m;m.publish(S.base+'/w/'+this.me().pid,e,true);setTimeout(()=>{try{m.close()}catch(err){}},2500)}else if(S.link)S.link.close();
     delete this.src[code];if(this.sel&&this.sel.startsWith(code+'|'))this.sel=null;if(this.chatSrc===code)this.chatSrc=null;
     Object.keys(this.mk).forEach(k=>{if(k.startsWith(code+'|')){this.riderLay.removeLayer(this.mk[k]);delete this.mk[k]}});
@@ -83,8 +85,8 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       const prev=R.st;R.st=o;
       if(o.pos&&o.status==='on'){const tr=R.trail,l=tr[tr.length-1];if(!l||l[2]!==o.pos.t){tr.push([o.pos.lat,o.pos.lon,o.pos.t,o.pos.alt]);if(tr.length>4000)tr.splice(0,500)}}
       if(o.sos&&Date.now()-o.sos<SOS_MS&&(!prev||prev.sos!==o.sos)&&Date.now()-S.syncT>3000){Snd.sos();vib([600,200,600,200,900]);toast('🆘 '+o.name+' a besoin d\'aide',true);
-        Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:'Touche pour voir sa position.',sos:true,key:'sos-'+S.code+id,tap:{w:S.code,k:'sos',pid:id}})}
-      if(!o.sos&&prev&&prev.sos&&Date.now()-S.syncT>3000){toast('✔ '+o.name+' : tout va bien');Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+S.code+id,tap:{w:S.code,k:'map',pid:id}})}
+        Notify.show({title:'🆘 '+o.name+' a besoin d\'aide',body:'Touche pour voir sa position.',sos:true,key:'sos-'+id,tap:{w:S.code,k:'sos',pid:id}})}
+      if(!o.sos&&prev&&prev.sos&&Date.now()-S.syncT>3000){toast('✔ '+o.name+' : tout va bien');Notify.show({title:'✔ '+o.name+' : tout va bien',body:'Alerte levée.',key:'sos-'+id,tap:{w:S.code,k:'map',pid:id}})}
       if(!prev)this.routesDirty=true;
       if(prev&&prev.f!==o.f&&JSON.stringify(prev.f)!==JSON.stringify(o.f))this.routesDirty=true;
       this.dirty();return}
@@ -101,7 +103,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       if(!m.fw||sos){const away=document.visibilityState==='hidden'||this.tab!=='chat'||this.chatSrc!==S.code;
         if(away||sos)toast((sos?'🆘 ':'💬 ')+m.name+' : '+Moder.clean(m.text),sos);
         if(away||sos)Notify.show({title:sos?'🆘 '+m.name+' a besoin d\'aide':'💬 '+m.name,body:sos?'Touche pour voir sa position.':Moder.clean(m.text),sos,
-          key:(sos||m.k==='ok'?'sos-':'msg-')+S.code+m.pid,tap:{w:S.code,k:sos?'sos':'msg',pid:m.pid}})}
+          key:(sos||m.k==='ok'?'sos-':'msg-')+m.pid,tap:{w:S.code,k:sos?'sos':'msg',pid:m.pid}})}
     }
     if(this.tab==='chat'&&this.chatSrc===S.code&&document.visibilityState==='visible')S.lastRead=Date.now();
     this.renderChat();this.renderHead();
@@ -115,6 +117,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
     const m={id:uid(),t:Date.now(),pid:w.pid,name:w.name,text,fw:1};if(q)m.k=q.k;
     S.myMsgs.push(m);if(S.myMsgs.length>40)S.myMsgs.shift();this.addMsg(S,m);
     seal(S.key,{pid:w.pid,name:w.name,fw:1,msgs:S.myMsgs.slice(-40)}).then(b=>S.m.publish(S.base+'/m/'+w.pid,b,true));
+    Push.send(S.link,w.pid,'r',{title:'📣 '+w.name,body:text,key:'msg-'+w.pid,tap:{k:'msg',pid:w.pid}});
     this.presence(S);return true;
   },
   /* partage abandonné (rien de neuf depuis 48 h, jamais terminé) : le premier qui l'ouvre l'efface du relais */
@@ -259,7 +262,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       <button type="button" data-wm="replay">▶ Rejouer ${this.srcList().length>1?'(coureur choisi)':'depuis le départ'}</button>
       <button type="button" data-wm="map">🗂 Fond de carte</button>
       <button type="button" data-wm="name">✏ Mon prénom${this.me().name?' : '+esc(this.me().name):''}</button>
-      ${Notify.state()==='default'?'<button type="button" data-wm="notif">🔔 Activer les notifications (messages, alertes)</button>':''}
+      ${Notify.state()==='default'||Push.needsInstall()?'<button type="button" data-wm="notif">🔔 Notifications, même écran éteint</button>':''}
       <h2>Suivis</h2><ul class="rlist">${this.srcList().map(S=>`<li><span><b>${esc(this.srcName(S))}</b><small>${this.isLive(S)?'Course':'Sortie Group Run'} · code ${fmtCode(S.code)}</small></span><button type="button" class="mini" data-wm="share" data-code="${S.code}" aria-label="Partager le lien">📤</button><button type="button" class="mini danger" data-wm="rm" data-code="${S.code}" aria-label="Ne plus suivre">🗑</button></li>`).join('')||'<li class="hint">Aucun</li>'}</ul>
       <button type="button" data-wm="help">❓ Aide</button><button type="button" data-wm="home">🏠 Accueil (le suivi continue)</button>`;
     Sheet.show('Suivi',box);
@@ -273,6 +276,7 @@ const Watch={on:false,src:{},sel:null,tab:'map',map:null,mk:{},pl:{},rl:{},chatS
       if(k==='rm'){Sheet.hide();this.remove(b.dataset.code,true)}
       if(k==='help'){Sheet.hide();show('help')}
       if(k==='replay'){const x=this.selected(),code=x?x.S.code:(this.srcList()[0]||{}).code;const d=code&&watchReplayData(code);if(d)Replay.open(d);else toast('Rien à rejouer pour l\'instant.',true)}
+      if(k==='notif'&&Push.needsInstall()){Sheet.hide();Push.installHelp();return}
       if(k==='notif'){const st=await Notify.ask();Sheet.hide();toast(st==='granted'?'Notifications activées':'Notifications refusées par le navigateur',st!=='granted')}
       if(k==='home'){Sheet.hide();show('home')}
     };

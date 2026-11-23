@@ -32,7 +32,11 @@ Sur ordinateur ou tablette, la carte et la fiche du coureur s'affichent côte à
 
 ## Relais et confidentialité
 
-Les échanges passent par un relais MQTT public (HiveMQ, à défaut EMQX). Tout est chiffré de bout en bout (AES-GCM) avec une clé dérivée du code : le relais ne voit que des données illisibles. Le code (12 chiffres + une clé de 8 caractères, par exemple `148 291 355 720 · K7P2 XM4Q`) est impossible à retrouver en essayant toutes les combinaisons ; les anciens codes de 12 chiffres restent lisibles.
+**Relais Follow Trail** (`relay/`) : un petit courtier MQTT sur WebSocket tenu par un Durable Object Cloudflare. Il garde les derniers messages de chaque sortie (8 jours au plus) et envoie les **notifications push** aux navigateurs, même page fermée : Android et ordinateur dès que les notifications sont autorisées, iPhone une fois l'appli web ajoutée à l'écran d'accueil. Le contenu des notifications reste chiffré avec la clé de la sortie ; c'est le téléphone du destinataire qui le déchiffre. Déploiement automatique par `.github/workflows/relay.yml` avec les secrets `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`. Essai en local : `cd relay && npx wrangler dev`.
+
+**Mode poche** (navigateur) : le GPS d'une page web s'arrête quand l'écran se verrouille. Le mode poche garde l'écran allumé mais noir (pixels éteints sur un écran OLED) ; appui long pour revenir. L'appli Android ou iPhone n'en a pas besoin.
+
+Les échanges passent par le relais Follow Trail (dossier `relay/`, Cloudflare Workers, offre gratuite) ou, à défaut, par un relais MQTT public (HiveMQ, puis EMQX). Tout est chiffré de bout en bout (AES-GCM) avec une clé dérivée du code : le relais ne voit que des données illisibles. Le code (12 chiffres + une clé de 8 caractères, par exemple `148 291 355 720 · K7P2 XM4Q`) est impossible à retrouver en essayant toutes les combinaisons ; les anciens codes de 12 chiffres restent lisibles.
 
 En fin de sortie ou de partage, positions, traces et messages sont effacés du relais ; pour une course, seul le bilan final reste lisible par ceux qui ont le lien. Un partage oublié s'arrête tout seul après 24 h sans mouvement (ou 7 jours), et un partage abandonné depuis 48 h est effacé par le premier qui ouvre son lien.
 

@@ -27,9 +27,12 @@ const Notify={
       return;
     }
     if(!('Notification' in window)||Notification.permission!=='granted'||document.visibilityState==='visible')return;
-    const opts={body:o.body||'',tag:o.key||undefined,renotify:!!o.key,icon:'icon-192.png',badge:'icon-192.png',requireInteraction:!!o.sos,data:o.tap||null,vibrate:o.sos?[600,200,600,200,900]:[80,60,80]};
+    const opts={body:o.body||'',tag:o.key||undefined,renotify:!!o.key,icon:'icon-192.png',badge:'icon-192.png',requireInteraction:!!o.sos,data:Object.assign({ts:Date.now()},o.tap||{}),vibrate:o.sos?[600,200,600,200,900]:[80,60,80]};
     const direct=()=>{try{const n=new Notification(o.title,opts);n.onclick=()=>{try{window.focus()}catch(e){}this.onTap(o.tap);n.close()}}catch(e){}};
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification(o.title,opts)).catch(direct);else direct();
+    /* la notification push du relais a pu arriver avant : pas de deuxième sonnerie */
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(async r=>{
+      if(o.key){const old=await r.getNotifications({tag:o.key});if(old.some(x=>x.title===o.title&&x.data&&Date.now()-x.data.ts<20000))return}
+      return r.showNotification(o.title,opts)}).catch(direct);else direct();
   },
   clear(key){
     if(NATIVE&&P.notif){try{P.notif.cancel({notifications:[{id:this.idFor(key)}]}).catch(()=>{})}catch(e){}return}
@@ -38,6 +41,7 @@ const Notify={
   /* toucher la notification : ouvrir l'endroit concerné */
   onTap(x){
     if(!x)return;
+    if(!x.w&&x.code&&typeof Watch!=='undefined'&&Watch.src[x.code])x.w=x.code;   /* notification push */
     if(x.w&&typeof Watch!=='undefined'&&Watch.src[x.w]){Watch.open();if(x.pid)Watch.select(x.w,x.pid);Watch.setTab(x.k==='msg'?'chat':Watch.wide?'run':'map');return}
     if(Ride.on){show('ride');if(x.k==='msg')Ride.setTab('chat');else{Ride.setTab('map');if(x.pid&&Ride.riders[x.pid])setTimeout(()=>RideMap.focus(x.pid),150)}}
   },
@@ -45,8 +49,9 @@ const Notify={
   async ask(){
     if(NATIVE){ensureNotifPermission();return 'granted'}
     if(!('Notification' in window))return 'unsupported';
-    if(Notification.permission!=='default')return Notification.permission;
-    try{return await Notification.requestPermission()}catch(e){return 'denied'}
+    if(Notification.permission!=='default'){if(Notification.permission==='granted')Push.registerAll();return Notification.permission}
+    let st='denied';try{st=await Notification.requestPermission()}catch(e){}
+    if(st==='granted')Push.registerAll();return st;
   },
   state(){return NATIVE?'native':!('Notification' in window)?'unsupported':Notification.permission}
 };

@@ -1,0 +1,21 @@
+# Relais Follow Trail : MQTT 3.1.1 sur WebSocket dans un Durable Object, et notifications push web.
+# Déployé par .github/workflows/relay.yml (secrets CLOUDFLARE_API_TOKEN et CLOUDFLARE_ACCOUNT_ID).
+name = "followtrail-relay"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = false
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]
+
+[vars]
+# « sub » des jetons VAPID : adresse de contact demandée par les services de notification (Apple, Google, Mozilla)
+PUSH_CONTACT = "https://gregmey0.github.io/followtrail/"
+# 1 seulement pour les tests locaux : accepte n'importe quelle adresse d'abonnement
+ALLOW_ANY_PUSH = "0"

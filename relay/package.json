@@ -1,0 +1,8 @@
+{
+  "name": "followtrail-relay",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Relais Follow Trail : MQTT sur WebSocket (Durable Object) et notifications push web",
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "devDependencies": { "wrangler": "^4" }
+}

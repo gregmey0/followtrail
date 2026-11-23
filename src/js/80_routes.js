@@ -57,7 +57,8 @@ $('#sheetBody').addEventListener('click',e=>{if(!Routes.isOpen())return;const b=
 const RideMenu={
   open(){
     const o=Ride.isOrg,live=Ride.mode==='live',box=document.createElement('div');box.className='menu';
-    box.innerHTML=live?`<button type="button" class="primary" data-m="invite">🔗 Envoyer le lien de suivi</button>
+    const pk=NATIVE?'':'<button type="button" data-m="pocket">🌑 Mode poche : écran noir, GPS actif</button>';
+    box.innerHTML=live?`<button type="button" class="primary" data-m="invite">🔗 Envoyer le lien de suivi</button>${pk}
       <button type="button" data-m="routes">🧭 GPX du parcours</button>
       <button type="button" data-m="map">🗂 Fond de carte et affichage</button>
       <button type="button" data-m="reset">↺ Remettre les compteurs à zéro (au départ)</button>
@@ -67,7 +68,7 @@ const RideMenu={
       <button type="button" data-m="help">❓ Aide</button>
       <button type="button" class="danger" data-m="end">⏹ Terminer le partage</button>
       <p class="hint center">Code de suivi ${fmtCode(Ride.code)}${Ride.eco?' · mode économie : envoi toutes les 30 s':''}</p>`
-      :`<button type="button" class="primary" data-m="invite">🔗 Inviter (lien, QR code, code)</button>
+      :`<button type="button" class="primary" data-m="invite">🔗 Inviter (lien, QR code, code)</button>${pk}
       <button type="button" data-m="routes">🧭 Tracés GPX</button>
       <button type="button" data-m="map">🗂 Fond de carte et affichage</button>
       <button type="button" data-m="reset">↺ Remettre mes compteurs à zéro</button>
@@ -89,6 +90,7 @@ const RideMenu={
       if(k==='gpxall'){const t=[{name:Ride.name,pts:Ride.track}].concat(Ride.others().map(R=>({name:R.st.name,pts:Ride.fullTrack(R)})));shareFile(slug('followtrail_'+Ride.sname)+'.gpx',trackToGPX(Ride.sname,t))}
       if(k==='reset'){Sheet.hide();Ride.resetStats()}
       if(k==='replay')Replay.open(rideReplayData());
+      if(k==='pocket'){Sheet.hide();Pocket.open()}
       if(k==='orgoff'){settings.orgOff=!settings.orgOff;saveSettings();b.setAttribute('aria-pressed',String(settings.orgOff));b.querySelector('b').textContent=settings.orgOff?'oui':'non';
         toast(settings.orgOff?'Tu seras alerté si quelqu\'un s\'écarte de son tracé plus de 30 s (écart réglable dans les Réglages).':'Alerte hors tracé du groupe désactivée');
         if(settings.orgOff){Notify.ask();Ride.others().forEach(R=>{R.offSince=null;R.offAlerted=false})}}

@@ -263,3 +263,15 @@ table.plantab tr.fin th,table.plantab tr.fin td{border-top:2px solid var(--acc)}
 .rpbtns #rpPlay{flex:1}
 .rpspeed{display:flex;flex-direction:column;font-size:.75rem;color:var(--muted)}
 .rpspeed select{min-height:40px;font-size:1rem}
+
+/* mode poche */
+#pocket{position:fixed;inset:0;background:#000;z-index:2147483000;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:none;outline:none}
+#pocket[hidden]{display:none}
+#pocket .pk{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.25rem;color:#3c3c3c;text-align:center;max-width:80vw;pointer-events:none}
+#pkClock{font-size:2rem;color:#4d4d4d;font-variant-numeric:tabular-nums}
+#pkInfo{font-size:.95rem;font-variant-numeric:tabular-nums}
+#pocket small{font-size:.75rem}
+#pocket .pkbar{display:block;width:9rem;height:3px;background:#1c1c1c;border-radius:2px;overflow:hidden;position:relative}
+#pocket .pkbar::after{content:"";position:absolute;inset:0;width:0;background:#6b6b6b}
+#pocket.holding .pkbar::after{width:100%;transition:width 2s linear}
+body.pocketon{overflow:hidden}

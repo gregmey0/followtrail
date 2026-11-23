@@ -4,7 +4,10 @@
    Code : 12 chiffres (le premier désigne le relais) + une clé de 8 caractères, « 148291355720-K7P2XM4Q ».
    La clé rend impossible de retrouver les codes en essayant toutes les combinaisons hors ligne à partir
    de ce que voit n'importe qui sur un relais public. Les anciens codes de 12 chiffres seuls restent lisibles. */
+/* relais : « 3 » = relais Follow Trail sur Cloudflare (notifications push), « 1 » HiveMQ et « 2 » EMQX en secours */
+const RELAY3='';
 const BROKERS={'1':'wss://broker.hivemq.com:8884/mqtt','2':'wss://broker.emqx.io:8084/mqtt'};
+if(RELAY3)BROKERS['3']=RELAY3;
 (()=>{const t=store.get('flt.testbroker',null);if(t)BROKERS['9']=t})();
 const WEB_URL='https://gregmey0.github.io/followtrail/';
 const APP={name:'Follow Trail',scheme:'followtrail',pkg:'io.github.gregmey0.followtrail',apk:'https://github.com/gregmey0/followtrail/releases/latest/download/FollowTrail.apk'};
@@ -83,10 +86,10 @@ class Mqtt{
   waitConnected(ms){return new Promise(res=>{if(this.connected)return res(true);const t0=Date.now(),i=setInterval(()=>{if(this.connected||Date.now()-t0>ms){clearInterval(i);res(this.connected)}},100)})}
   close(){this.closed=true;clearTimeout(this.rt);clearInterval(this.ka);try{this._send(new Uint8Array([0xE0,0]));this.ws&&this.ws.close()}catch(e){}}
 }
-/* relais : serveur de test éventuel, puis HiveMQ, puis EMQX */
+/* relais : serveur de test éventuel, puis le relais Follow Trail, puis HiveMQ, puis EMQX */
 async function pickBroker(b){
   const old=b.innerHTML;b.disabled=true;b.textContent='⏳ Connexion au relais…';let broker=null;
-  for(const k of['9','1','2']){if(!BROKERS[k])continue;const m=new Mqtt(BROKERS[k]);m.connect();const ok=await m.waitConnected(7000);m.close();if(ok){broker=k;break}}
+  for(const k of['9','3','1','2']){if(!BROKERS[k])continue;const m=new Mqtt(BROKERS[k]);m.connect();const ok=await m.waitConnected(7000);m.close();if(ok){broker=k;break}}
   b.disabled=false;b.innerHTML=old;
   if(!broker)toast('Relais injoignable : vérifie la connexion internet puis réessaie.',true);return broker;
 }
